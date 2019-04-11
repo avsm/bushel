@@ -1,4 +1,4 @@
-## bushel - a reconstruction of livejournal for the 2020s
+# bushel - a reconstruction of livejournal for the 2020s
 
 **wip spec, if you dont know what this is, its probably not ready for you yet**
 
@@ -20,7 +20,7 @@ datastructures include blog posts, wiki entries, social media feeds, git
 pushes, events and so on.  Every datastructure is versioned with migrations so
 that older feeds can always be upgraded to newer feeds.
 
-### Motivation
+# Motivation
 
 Working with open source communities in the modern world is a tremendous
 undertaking due to the sheer number of channels and lines of communication we
@@ -36,8 +36,7 @@ source rarely happens solo these days.  Instead, small groups of people
 collaborate across these tasks, and this is where tracking the information flow
 gets complex and manual across all the communication medium.
 
-Goals
------
+## Goals
 
 Bushel is intended to provide a framework for:
 
