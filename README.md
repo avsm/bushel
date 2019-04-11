@@ -36,8 +36,6 @@ source rarely happens solo these days.  Instead, small groups of people
 collaborate across these tasks, and this is where tracking the information flow
 gets complex and manual across all the communication medium.
 
-### Goals
-
 Bushel is intended to provide a framework for:
 
 - **individual** open source contributors to quickly write about their work,
