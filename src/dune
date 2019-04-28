@@ -1,0 +1,5 @@
+(library
+  (name bushel)
+  (public_name bushel)
+  (libraries uri lwt cohttp-lwt-unix yojson irmin-unix)
+  (preprocess (pps graphql_ppx)))
