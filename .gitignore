@@ -4,3 +4,4 @@ _tests
 *.byte
 *.install
 .merlin
+.graphql_ppx_cache
