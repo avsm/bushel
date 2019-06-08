@@ -3,6 +3,7 @@ open Lwt.Infix
 module Make(S : Irmin.S with type key = string list and type step = string and type contents = Contents.t) = struct
   module L = Backlinks.Make(S)
   module GH = Github.Make(S)
+  module Server = Graphql.Make(S)
 
   type t = {
     repo  : S.repo;
@@ -16,17 +17,6 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
     S.master repo >>= fun store ->
     Github_cookie_jar.init () >|= fun jar ->
     { repo; store; jar }
-
-  module Server = struct
-    include Irmin_unix.Graphql.Server.Make
-      (S)
-      (struct
-        let remote = None
-      end)
-
-    let v t =
-      v t.repo
-  end
 
   let info s =
     let date = Unix.gettimeofday () |> Int64.of_float in
@@ -70,6 +60,9 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
           GH.sync tree ~token:auth.token ~data_key:["data"; "github"] >|= fun tree ->
           Some tree
     )
+
+  let server t =
+    Server.v t.repo
 end
 
 module Store = Irmin_unix.Git.FS.Ref(Contents)

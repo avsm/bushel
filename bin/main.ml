@@ -37,7 +37,7 @@ let graphql =
   let open Cmdliner in
   let cmd =
     run_cmd (fun bushel ->
-      let server = Bushel.Server.v bushel in
+      let server = Bushel.server bushel in
       Conduit_lwt_unix.init ~src:"127.0.0.1" () >>= fun ctx ->
       let ctx = Cohttp_lwt_unix.Net.init ~ctx () in
       let on_exn exn =
