@@ -57,6 +57,8 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
         | Contents.Repository r -> repository_as_contents r
         | Post p -> post_as_contents (tree, key, p)
         | Link _l -> link_as_contents []
+        | Tags _t -> link_as_contents [] (* FIXME *)
+        | TaggedKeys _t -> link_as_contents [] (* FIXME *)
     end
 
     module Metadata = Defaults.Metadata

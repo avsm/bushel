@@ -14,7 +14,9 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
           |> List.filter ((<>) "")
         )
     | Link _
-    | Repository _ -> []
+    | Repository _
+    | TaggedKeys _
+    | Tags _ -> []
 
   let rec concat_key k k' =
     match S.Key.decons k' with
@@ -27,7 +29,9 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
       | None -> []
       | Some (Link l) -> l
       | Some (Repository _)
-      | Some (Post _) -> assert false
+      | Some (Post _)
+      | Some (TaggedKeys _)
+      | Some (Tags _) -> assert false
     in
     S.Tree.add tree target (Link (source::links))
 
