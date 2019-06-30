@@ -15,10 +15,4 @@ let t =
   |~ case1 "Link" Link.t (fun l -> Link l)
   |> sealv
 
-let pp = Irmin.Type.pp_json
-
-let of_string s =
-  let decoder = Jsonm.decoder (`String s) in
-  Irmin.Type.decode_json t decoder
-
 let merge = Irmin.Merge.(option (idempotent t))
