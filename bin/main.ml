@@ -14,7 +14,7 @@ module Args = struct
     Arg.(required & pos 0 (some key_conv) None & info [] ~doc)
 
   let tag =
-    let doc = "Tag to add" in
+    let doc = "Tag" in
     Arg.(required & pos 1 (some string) None & info [] ~doc)
 
   let bushel =
@@ -139,6 +139,29 @@ let list_tagged_keys =
   in
   Cmdliner.Term.(const cmd $ Args.tag $ Args.bushel, info "list_tagged_keys")
 
+let summarise_tag =
+  let open Cmdliner in
+  let ptime_conv = Args.conv_of_type Bushel.Ptime_ext.t in
+  let tag =
+    let doc = "Tag" in
+    Arg.(required & pos 0 (some string) None & info [] ~doc)
+  in
+  let start_time_arg =
+    let doc = "Start time" in
+    Arg.(required & pos 1 (some ptime_conv) None & info [] ~doc)
+  in
+  let end_time_arg =
+    let doc = "End time" in
+    Arg.(required & pos 2 (some ptime_conv) None & info [] ~doc)
+  in
+  let cmd tag start_time end_time =
+    run_cmd (fun bushel ->
+      Bushel.summarise_tag bushel ~tag ~start_time ~end_time >|= fun summary ->
+      print_string summary
+    )
+  in
+ Term.(const cmd $ tag $ start_time_arg $ end_time_arg $ Args.bushel, info "summarise_tag")
+
 let sync =
   let open Cmdliner in
   let cookie =
@@ -160,6 +183,7 @@ let commands = [
   remove_tag;
   list_tags;
   list_tagged_keys;
+  summarise_tag;
   sync
 ]
 

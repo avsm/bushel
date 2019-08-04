@@ -4,6 +4,12 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
   module L = Backlinks.Make(S)
   module GH = Github.Make(S)
   module T = Tags.Make(S)
+  module SG = Summary_generator.Make(S)(T)(struct
+    let summarise pull_requests =
+      pull_requests
+      |> List.map (fun pr -> Format.sprintf "%s\n===\n\n%s" pr.Repository.title pr.body)
+      |> String.concat "\n\n---\n\n"
+  end)
   module Server = Graphql.Make(S)
 
   type t = {
@@ -90,9 +96,15 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
           Some tree
     )
 
+  let summarise_tag t ~tag ~start_time ~end_time =
+    S.find_tree t.store S.Key.empty >>= function
+      | None -> Lwt.return ""
+      | Some tree -> SG.summarise tree ~tag ~start_time ~end_time
+
   let server t =
     Server.v t.repo
 end
 
+module Ptime_ext = Ptime_ext
 module Store = Irmin_unix.Git.FS.Ref(Contents)
 include Make(Store)
