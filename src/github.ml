@@ -1,17 +1,46 @@
 open Lwt.Infix
 
+module List = struct
+  include List
+
+  let filter_map f xs =
+    List.fold_left (fun memo x ->
+      match f x with
+      | Some x' -> x'::memo
+      | None -> memo
+    ) [] xs
+    |> List.rev
+end
+
+module Option = struct
+  let map t ~f =
+    match t with
+    | None -> None
+    | Some x -> Some (f x)
+end
+
 module Queries = struct
   module Repo = struct
+    let decode_date = Ptime_ext.of_json_exn
+    let decode_date_option = Option.map ~f:decode_date
+
+    let decode_pull_request_state = function
+      | `CLOSED -> Repository.Closed
+      | `MERGED -> Repository.Merged
+      | `OPEN -> Repository.Open
+
     include [%graphql {|
       query PR($owner: String!, $name: String!) {
         repository(owner: $owner, name: $name) {
-          updatedAt @bsDecoder(fn: "Yojson.Basic.Util.to_string")
+          updatedAt @bsDecoder(fn: "decode_date")
           pullRequests(first: 100, orderBy: {field: UPDATED_AT, direction: DESC}) {
             nodes {
               number
               title
-              state
-              updatedAt
+              state @bsDecoder(fn: "decode_pull_request_state")
+              createdAt @bsDecoder(fn: "decode_date")
+              updatedAt @bsDecoder(fn: "decode_date")
+              mergedAt @bsDecoder(fn: "decode_date_option")
               headRef {
                 id
               }
@@ -50,8 +79,27 @@ module Queries = struct
     let to_repository rsp =
       match rsp#repository with
       | Some repo ->
+          let pull_requests =
+            match repo#pullRequests#nodes with
+            | Some nodes ->
+                List.filter_map (function
+                  | Some node ->
+                    Some {
+                      Repository.number = node#number;
+                      title = node#title;
+                      state = node#state;
+                      created_at = node#createdAt;
+                      updated_at = node#updatedAt;
+                      merged_at = node#mergedAt;
+                      body = node#body;
+                    }
+                  | None -> None
+                ) (Array.to_list nodes)
+            | None -> []
+          in
           Ok {
-            Repository.updated_at = repo#updatedAt
+            Repository.updated_at = repo#updatedAt;
+            pull_requests;
           }
       | None -> Error "Repository not found"
   end
@@ -82,8 +130,7 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
   module Store = S
 
   let sync_one tree ~token ~owner ~name =
-    let owner_and_name = Format.sprintf "%s/%s" owner name in
-    let key = ["data"; "github"; owner_and_name] in
+    let key = ["data"; "github"; owner; name] in
     let q = Queries.Repo.make ~owner ~name () in
     execute_query q ~token >>= fun rsp ->
     Queries.Repo.to_repository rsp |> fail_if_err >>= fun repo ->

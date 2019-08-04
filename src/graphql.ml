@@ -9,12 +9,15 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
 
       type src = (unit, [`Contents]) Schema.abstract_value
 
+      let datetime_typ = Schema.scalar "DateTime"
+        ~coerce:(fun ptime -> `String (Ptime.to_rfc3339 ptime))
+
       let schema_typ = Schema.union "ContentValue"
 
       let repository = Schema.(obj "Repository"
         ~fields:(fun _ -> [
           field "updatedAt"
-            ~typ:(non_null string)
+            ~typ:(non_null datetime_typ)
             ~args:[]
             ~resolve:(fun _ repo -> repo.Repository.updated_at)
         ])
