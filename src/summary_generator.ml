@@ -8,7 +8,7 @@ module type TAGS = sig
 end
 
 module type SUMMARISER = sig
-  val summarise : Repository.pull_request list -> string
+  val summarise : Repository.Pull_request.t list -> string
 end
 
 module Make

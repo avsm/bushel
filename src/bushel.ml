@@ -7,7 +7,7 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
   module SG = Summary_generator.Make(S)(T)(struct
     let summarise pull_requests =
       pull_requests
-      |> List.map (fun pr -> Format.sprintf "%s\n===\n\n%s" pr.Repository.title pr.body)
+      |> List.map (fun pr -> Format.sprintf "%s\n===\n\n%s" pr.Repository.Pull_request.title pr.body)
       |> String.concat "\n\n---\n\n"
   end)
   module Server = Graphql.Make(S)

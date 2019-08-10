@@ -25,9 +25,9 @@ module Queries = struct
     let decode_date_option = Option.map ~f:decode_date
 
     let decode_pull_request_state = function
-      | `CLOSED -> Repository.Closed
-      | `MERGED -> Repository.Merged
-      | `OPEN -> Repository.Open
+      | `CLOSED -> Repository.Pull_request.Closed
+      | `MERGED -> Merged
+      | `OPEN -> Open
 
     include [%graphql {|
       query PR($owner: String!, $name: String!) {
@@ -85,7 +85,7 @@ module Queries = struct
                 List.filter_map (function
                   | Some node ->
                     Some {
-                      Repository.number = node#number;
+                      Repository.Pull_request.number = node#number;
                       title = node#title;
                       state = node#state;
                       created_at = node#createdAt;
