@@ -1,6 +1,6 @@
 open Lwt.Infix
 
-module Make(S : Irmin.S with type key = string list and type step = string and type contents = Contents.t) = struct
+module Make(S : Irmin.S with type key = string list and type step = string and type contents = string) = struct
   module L = Backlinks.Make(S)
   module GH = Github.Make(S)
   module T = Tags.Make(S)
@@ -10,13 +10,15 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
       |> List.map (fun pr -> Format.sprintf "%s\n===\n\n%s" pr.Repository.Pull_request.title pr.body)
       |> String.concat "\n\n---\n\n"
   end)
-  module Server = Graphql.Make(S)
+  module GQL = Graphql.Make(S)
 
   type t = {
     repo  : S.repo;
     store : S.t;
     jar   : Github_cookie_jar.t;
   }
+
+  let data_key = [".bushel"; "data"; "github"]
 
   let v path =
     let cfg = Irmin_git.config path in
@@ -45,7 +47,7 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
     let contents = load_file file in
     let key = ["sites"; site; "posts"; Filename.basename file] in
     let info = info "import post %s" file in
-    S.set_exn t.store ~info key (Post { contents })
+    S.set_exn t.store ~info key contents
 
   let add_repo t ~cookie ~owner ~name =
     Github_cookie_jar.get t.jar ~name:cookie >>= fun auth ->
@@ -53,7 +55,7 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
     S.with_tree_exn t.store S.Key.empty ~info (function
       | None -> Lwt.return None
       | Some tree ->
-          GH.sync_one tree ~token:auth.token ~owner ~name >|= fun tree ->
+          GH.sync_one tree ~data_key ~token:auth.token ~owner ~name >|= fun tree ->
           Some tree
     )
 
@@ -91,8 +93,8 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
     S.with_tree_exn t.store S.Key.empty ~info (function
       | None -> Lwt.return None
       | Some tree ->
-          L.sync tree ~links_key:["links"] ~contents_key:["sites"] >>= fun tree ->
-          GH.sync tree ~token:auth.token ~data_key:["data"; "github"] >|= fun tree ->
+          L.sync tree >>= fun tree ->
+          GH.sync tree ~token:auth.token ~data_key >|= fun tree ->
           Some tree
     )
 
@@ -101,10 +103,18 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
       | None -> Lwt.return ""
       | Some tree -> SG.summarise tree ~tag ~start_time ~end_time
 
+  module Graphql_cohttp_lwt =
+    Graphql_cohttp.Make (Graphql_lwt.Schema) (Cohttp_lwt_unix.IO)
+      (Cohttp_lwt.Body)
+
   let server t =
-    Server.v t.repo
+    let callback = Graphql_cohttp_lwt.make_callback (fun _req ->
+      S.tree t.store >|= fun tree ->
+      GQL.ctx ~tree
+    ) GQL.schema in
+    Cohttp_lwt_unix.Server.make_response_action ~callback ()
 end
 
 module Ptime_ext = Ptime_ext
-module Store = Irmin_unix.Git.FS.Ref(Contents)
+module Store = Irmin_unix.Git.FS.Ref(Irmin.Contents.String)
 include Make(Store)

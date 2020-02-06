@@ -11,7 +11,7 @@ module Args = struct
   let bushel =
     let open Cmdliner in
     let path =
-      let doc = Arg.info ["p"; "path"] ~doc:"Path to the bushel store" in
+      let doc = Arg.info ["path"] ~doc:"Path to the bushel store" in
       Arg.(value & opt string "." & doc)
     in
     let create path =

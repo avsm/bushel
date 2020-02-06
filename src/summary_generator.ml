@@ -12,21 +12,22 @@ module type SUMMARISER = sig
 end
 
 module Make
-    (S : Irmin.S with type key = string list and type step = string and type contents = Contents.t)
+    (S : Irmin.S with type key = string list and type step = string and type contents = string)
     (Tags : TAGS with type tree := S.tree and type key := S.key)
     (Summariser : SUMMARISER)
   = struct
+    module Tree = struct
+      module Repository = Repository.Tree (S)
+    end
+
     let summarise tree ~start_time:_ ~end_time:_ ~tag =
       Tags.tagged_keys tree ~tag >>= fun keys ->
       Format.printf "Found %d keys tagged with %s\n%!" (List.length keys) tag;
-      Lwt_list.filter_map_p (fun key ->
-        S.Tree.find tree key >|= function
-        | Some (Repository r) -> Some r
-        | Some (TaggedKeys _)
-        | Some (Post _)
-        | Some (Link _)
-        | Some (Tags _)
-        | None -> None
+      Lwt_list.filter_map_p (function
+        [".bushel"; "data"; "github"; _] as key ->
+          Tree.Repository.find_exn tree key >|= fun repo ->
+          Some repo
+        | _ -> Lwt.return_none
       ) keys
       >|= fun repositories ->
       repositories

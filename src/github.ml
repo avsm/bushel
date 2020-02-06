@@ -126,15 +126,16 @@ let fail_if_err = function
   | Ok x -> Lwt.return x
   | Error msg -> Lwt.fail (Failure msg)
 
-module Make(S : Irmin.S with type key = string list and type step = string and type contents = Contents.t) = struct
+module Make(S : Irmin.S with type key = string list and type step = string and type contents = string) = struct
   module Store = S
 
-  let sync_one tree ~token ~owner ~name =
-    let key = ["data"; "github"; owner; name] in
+  let sync_one tree ~data_key ~token ~owner ~name =
+    let key = data_key @ [owner; name] in
     let q = Queries.Repo.make ~owner ~name () in
     execute_query q ~token >>= fun rsp ->
     Queries.Repo.to_repository rsp |> fail_if_err >>= fun repo ->
-    S.Tree.add tree key (Repository repo)
+    let serialized = Irmin.Type.to_string Repository.t repo in
+    S.Tree.add tree key serialized
 
   let sync tree ~token ~data_key =
     S.Tree.list tree data_key >>= fun owners ->
@@ -142,7 +143,7 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
       let owner_key = S.Key.rcons data_key owner in
       S.Tree.list tree owner_key >>= fun repos ->
       Lwt_list.fold_left_s (fun tree (name, _) ->
-        sync_one tree ~token ~owner ~name
+        sync_one tree ~data_key ~token ~owner ~name
       ) tree repos
     ) tree owners
 end
