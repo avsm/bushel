@@ -109,8 +109,7 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
 
   let server t =
     let callback = Graphql_cohttp_lwt.make_callback (fun _req ->
-      S.tree t.store >|= fun tree ->
-      GQL.ctx ~tree
+      GQL.ctx ~store:t.store
     ) GQL.schema in
     Cohttp_lwt_unix.Server.make_response_action ~callback ()
 end

@@ -2,7 +2,7 @@ open Lwt.Infix
 
 module Make (S : Irmin.S with type key = string list and type step = string and type contents = string) : sig
   type ctx
-  val ctx : tree:S.tree -> ctx
+  val ctx : store:S.t -> ctx
 
   val schema : ctx Graphql_lwt.Schema.schema
 end = struct
@@ -15,10 +15,13 @@ end = struct
   end
 
   type ctx = {
-    tree : S.tree
+    store : S.t;
+    (* FIXME: this is a hacky workaround because Graphql_cohttp_lwt.make_callback
+     * does not allow returning a Lwt.t value *)
+    mutable tree : S.tree Lazy.t;
   }
 
-  let ctx ~tree = { tree }
+  let ctx ~store = { store; tree = lazy (assert false) }
 
   let datetime_typ = Schema.scalar "DateTime"
     ~coerce:(fun ptime -> `String (Ptime.to_rfc3339 ptime))
@@ -43,9 +46,9 @@ end = struct
         ~typ:(non_null (list (non_null post)))
         ~args:[]
         ~resolve:(fun info post ->
-          Tree.Link.find_or_empty info.ctx.tree post.Post.key >>= fun links ->
+          Tree.Link.find_or_empty Lazy.(force info.ctx.tree) post.Post.key >>= fun links ->
           Lwt_list.map_p (fun link ->
-            Tree.Post.find info.ctx.tree link.Link.key
+            Tree.Post.find Lazy.(force info.ctx.tree) link.Link.key
           ) links >|= fun posts ->
           Ok posts
         )
@@ -65,7 +68,7 @@ end = struct
         ~typ:(non_null (list (non_null post)))
         ~args:[]
         ~resolve:(fun info site ->
-          Tree.Post.list info.ctx.tree site >|= fun posts ->
+          Tree.Post.list Lazy.(force info.ctx.tree) site >|= fun posts ->
           Ok posts
         )
       ; 
@@ -77,7 +80,9 @@ end = struct
       ~typ:(non_null (list (non_null site)))
       ~args:[]
       ~resolve:(fun info () ->
-        Tree.Site.list info.ctx.tree >|= fun sites ->
+        S.tree info.ctx.store >>= fun tree ->
+        info.ctx.tree <- lazy tree;
+        Tree.Site.list tree >|= fun sites ->
         Ok sites
       )
   ])
