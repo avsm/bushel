@@ -23,7 +23,7 @@ end = struct
   let datetime_typ = Schema.scalar "DateTime"
     ~coerce:(fun ptime -> `String (Ptime.to_rfc3339 ptime))
 
-  let repository = Schema.(obj "Repository"
+  let _repository = Schema.(obj "Repository"
     ~fields:(fun _ -> [
       field "updatedAt"
         ~typ:(non_null datetime_typ)

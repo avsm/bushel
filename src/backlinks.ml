@@ -30,8 +30,8 @@ module Make(S : Irmin.S with type key = string list and type step = string and t
     fold_posts tree' ~f:(fun tree'' post ->
       let keys = extract_keys post in
       let link = Link.v ~key:post.key ~target_type:`Post in
-      Lwt_list.fold_left_s (fun tree'' key ->
-        Tree.Link.store tree'' ~key ~link
-      ) tree keys
+      Lwt_list.fold_left_s (fun tree''' key ->
+        Tree.Link.store tree''' ~key ~link
+      ) tree'' keys
     )
 end
