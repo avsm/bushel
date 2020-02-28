@@ -26,7 +26,7 @@ type t = {
 [@@deriving irmin]
 
 
-module Tree (S : Irmin.S with type key = string list and type step = string and type contents = string) = struct
+module Store (S : Irmin.S with type key = string list and type step = string and type contents = string) = struct
   let find_exn tree key =
     S.Tree.find tree key >>= function
     | None -> Lwt.fail Not_found

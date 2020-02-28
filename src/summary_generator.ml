@@ -16,16 +16,14 @@ module Make
     (Tags : TAGS with type tree := S.tree and type key := S.key)
     (Summariser : SUMMARISER)
   = struct
-    module Tree = struct
-      module Repository = Repository.Tree (S)
-    end
+    module Stores = Stores.Make (S)
 
     let summarise tree ~start_time:_ ~end_time:_ ~tag =
       Tags.tagged_keys tree ~tag >>= fun keys ->
       Format.printf "Found %d keys tagged with %s\n%!" (List.length keys) tag;
       Lwt_list.filter_map_p (function
         [".bushel"; "data"; "github"; _] as key ->
-          Tree.Repository.find_exn tree key >|= fun repo ->
+          Stores.Repository.find_exn tree key >|= fun repo ->
           Some repo
         | _ -> Lwt.return_none
       ) keys

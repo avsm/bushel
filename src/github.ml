@@ -127,8 +127,6 @@ let fail_if_err = function
   | Error msg -> Lwt.fail (Failure msg)
 
 module Make(S : Irmin.S with type key = string list and type step = string and type contents = string) = struct
-  module Store = S
-
   let sync_one tree ~data_key ~token ~owner ~name =
     let key = data_key @ [owner; name] in
     let q = Queries.Repo.make ~owner ~name () in

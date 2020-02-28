@@ -8,11 +8,7 @@ module Make (S : Irmin.S with type key = string list and type step = string and 
 end = struct
   open Graphql_lwt
   
-  module Tree = struct
-    module Site = Site.Tree (S)
-    module Post = Post.Tree (S)
-    module Link = Link.Tree (S)
-  end
+  module Stores = Stores.Make (S)
 
   type ctx = {
     store : S.t;
@@ -46,9 +42,9 @@ end = struct
         ~typ:(non_null (list (non_null post)))
         ~args:[]
         ~resolve:(fun info post ->
-          Tree.Link.find_or_empty Lazy.(force info.ctx.tree) post.Post.key >>= fun links ->
+          Stores.Link.find_or_empty Lazy.(force info.ctx.tree) post.Post.key >>= fun links ->
           Lwt_list.map_p (fun link ->
-            Tree.Post.find Lazy.(force info.ctx.tree) link.Link.key
+            Stores.Post.find Lazy.(force info.ctx.tree) link.Link.key
           ) links >|= fun posts ->
           Ok posts
         )
@@ -68,7 +64,7 @@ end = struct
         ~typ:(non_null (list (non_null post)))
         ~args:[]
         ~resolve:(fun info site ->
-          Tree.Post.list Lazy.(force info.ctx.tree) site >|= fun posts ->
+          Stores.Post.list Lazy.(force info.ctx.tree) site >|= fun posts ->
           Ok posts
         )
       ; 
@@ -82,7 +78,7 @@ end = struct
       ~resolve:(fun info () ->
         S.tree info.ctx.store >>= fun tree ->
         info.ctx.tree <- lazy tree;
-        Tree.Site.list tree >|= fun sites ->
+        Stores.Site.list tree >|= fun sites ->
         Ok sites
       )
   ])

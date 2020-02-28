@@ -28,7 +28,7 @@ type t = {
 
 type sites = t list [@@deriving irmin]
 
-module Tree (S : Irmin.S with type key = string list and type step = string and type contents = string) = struct
+module Store (S : Irmin.S with type key = string list and type step = string and type contents = string) = struct
   let sites_key =
     [".bushes"; "sites"]
 

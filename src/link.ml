@@ -12,7 +12,7 @@ type t = link list
 let v ~key ~target_type =
   { key; target_type }
 
-module Tree (S : Irmin.S with type key = string list and type step = string and type contents = string) = struct
+module Store (S : Irmin.S with type key = string list and type step = string and type contents = string) = struct
   let links_folder =
     [".bushel"; "links"]
 

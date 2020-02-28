@@ -5,7 +5,7 @@ type t = {
   contents : string;
 }
 
-module Tree (S : Irmin.S with type key = string list and type step = string and type contents = string) = struct
+module Store (S : Irmin.S with type key = string list and type step = string and type contents = string) = struct
   let posts_key site =
     site.Site.key @ site.Site.posts_key
 
