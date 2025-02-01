@@ -13,4 +13,12 @@ module Util = Util
 module Md = Md
 module Srcsetter = Srcsetter
 
+val load_contacts : string -> Contact.ts
+val load_projects : string -> Project.ts
+val load_notes : string -> Note.ts
+val load_news : string -> News.ts
+val load_ideas : string -> Idea.ts
+val load_videos : string -> Video.ts
+val load_images : string -> Srcsetter.ts
+val load_papers : string -> Paper.ts
 val load : string -> Entry.t
