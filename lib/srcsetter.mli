@@ -10,7 +10,6 @@ type t =
 
 type ts = t list
 
-val v : string -> string -> string -> (int * int) MS.t -> int * int -> t
 val origin : t -> string
 val slug : t -> string
 val name : t -> string
