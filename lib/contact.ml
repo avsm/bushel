@@ -1,20 +1,22 @@
-type t = {
-  names: string list;
-  handle: string;
-  email: string option;
-  icon: string option;
-  github: string option;
-  twitter: string option;
-  url: string option;
-}
+type t =
+  { names : string list
+  ; handle : string
+  ; email : string option
+  ; icon : string option
+  ; github : string option
+  ; twitter : string option
+  ; url : string option
+  }
 
 type ts = t list
 
 let v ?email ?github ?twitter ?icon ?url handle names =
- { names; handle; email; github; twitter; url; icon }
+  { names; handle; email; github; twitter; url; icon }
+;;
 
 let make names email icon github twitter url =
   v ?email ?github ?twitter ?icon ?url "" names
+;;
 
 let names { names; _ } = names
 let name { names; _ } = List.hd names
@@ -37,37 +39,38 @@ let json_t =
   |> mem_opt "twitter" (some string) ~enc:twitter
   |> mem_opt "url" (some string) ~enc:url
   |> finish
+;;
 
 let v = Jsont_bytesrw.decode_string (Jsont.list json_t)
-
 let compare a b = String.compare a.handle b.handle
-
-let find_by_handle ts h =
-  List.find_opt (fun {handle;_} -> handle = h) ts
+let find_by_handle ts h = List.find_opt (fun { handle; _ } -> handle = h) ts
 
 let best_url c =
   match c.url with
   | Some v -> Some v
-  | None -> match c.github with
-    | Some v -> Some ("https://github.com/"^v)
-    | None -> match c.email with
-      | Some v -> Some ("mailto:"^v)
-      | None -> None
+  | None ->
+    (match c.github with
+     | Some v -> Some ("https://github.com/" ^ v)
+     | None ->
+       (match c.email with
+        | Some v -> Some ("mailto:" ^ v)
+        | None -> None))
+;;
 
 let read_file file = In_channel.(with_open_bin file input_all)
 
 let of_md fname =
   (* TODO fix Jekyll_post to not error on no date *)
-  let fname' = "2000-01-01-" ^ (Filename.basename fname) in
+  let fname' = "2000-01-01-" ^ Filename.basename fname in
   let handle = Filename.basename fname |> Filename.chop_extension in
   match Jekyll_post.of_string ~fname:fname' (read_file fname) with
   | Error (`Msg m) -> failwith ("contact_of_md: " ^ m)
   | Ok jp ->
     let fields = jp.Jekyll_post.fields |> Jekyll_format.fields_to_yaml in
     let c = Jsont_bytesrw.decode_string json_t (Ezjsonm.value_to_string fields) in
-    match c with
-    | Error e -> failwith e
-    | Ok c -> {c with handle}
+    (match c with
+     | Error e -> failwith e
+     | Ok c -> { c with handle })
 ;;
 
 (* Given a name, turn it lowercase and return the concatenation of the
@@ -77,6 +80,7 @@ let handle_of_name name =
   let words = String.split_on_char ' ' name in
   let initials = String.concat "" (List.map (fun w -> String.sub w 0 1) words) in
   initials ^ List.hd (List.rev words)
+;;
 
 (* fuzzy lookup for an author. Strip out any non alpha numeric characters while
    searching for the name *)
@@ -90,6 +94,7 @@ let lookup_by_name ts a =
       else aux acc ts
   in
   match aux [] ts with
-  | [a] -> a
+  | [ a ] -> a
   | [] -> raise (Failure ("contact.ml: author not found: " ^ a))
   | _ -> raise (Failure ("ambiguous author: " ^ a))
+;;

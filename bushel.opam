@@ -10,6 +10,7 @@ bug-reports: "https://github.com/avsm/bushel/issues"
 depends: [
   "dune" {>= "3.17"}
   "ocaml" {>= "5.2.0"}
+  "uri"
   "cmarkit"
   "ezjsonm"
   "ptime"

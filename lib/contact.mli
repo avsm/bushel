@@ -1,7 +1,7 @@
 type t
 type ts = t list
-val v : string -> (ts, string) result
 
+val v : string -> (ts, string) result
 val names : t -> string list
 val name : t -> string
 val handle : t -> string
@@ -11,12 +11,9 @@ val github : t -> string option
 val twitter : t -> string option
 val url : t -> string option
 val best_url : t -> string option
-
 val find_by_handle : t list -> string -> t option
 val handle_of_name : string -> string
 val lookup_by_name : t list -> string -> t
-
 val json_t : t Jsont.t
 val compare : t -> t -> int
-
 val of_md : string -> t

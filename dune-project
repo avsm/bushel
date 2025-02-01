@@ -14,6 +14,7 @@
  (description "This is all still a work in progress")
  (depends
   (ocaml (>= "5.2.0"))
+  uri
   cmarkit
   ezjsonm
   ptime
