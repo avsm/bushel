@@ -5,3 +5,4 @@ module Paper = Paper
 module Project = Project
 module Video = Video
 module Tags = Tags
+module Entry = Entry
