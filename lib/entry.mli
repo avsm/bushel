@@ -7,7 +7,6 @@ type entry =
   ]
 
 type slugs = (string, entry) Hashtbl.t
-
 type t
 
 val contacts : t -> Contact.ts
