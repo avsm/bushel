@@ -8,17 +8,14 @@ type entry =
 
 type slugs = (string, entry) Hashtbl.t
 
-type t =
-  { slugs : slugs
-  ; papers : Paper.ts
-  ; old_papers : Paper.ts
-  ; notes : Note.ts
-  ; projects : Project.ts
-  ; ideas : Idea.ts
-  ; videos : Video.ts
-  ; news : News.ts
-  ; contacts : Contact.ts
-  }
+type t
+
+val contacts : t -> Contact.ts
+val videos : t -> Video.ts
+val ideas : t -> Idea.ts
+val papers : t -> Paper.ts
+val notes : t -> Note.ts
+val projects : t -> Project.ts
 
 val v
   :  papers:Paper.t list

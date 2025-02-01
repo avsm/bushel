@@ -25,6 +25,13 @@ type t =
   ; contacts : Contact.ts
   }
 
+let contacts { contacts; _ } = contacts
+let videos { videos; _ } = videos
+let ideas { ideas; _ } = ideas
+let papers { papers; _ } = papers
+let notes { notes; _ } = notes
+let projects { projects; _ } = projects
+
 let v ~papers ~notes ~projects ~ideas ~videos ~news ~contacts =
   let slugs : slugs = Hashtbl.create 42 in
   let papers, old_papers = List.partition (fun p -> p.Paper.latest) papers in

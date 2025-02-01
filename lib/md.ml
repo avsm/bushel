@@ -123,7 +123,7 @@ let rewrite_label_reference ?slugs entries lb meta =
      | Some () ->
        let slug = Label.key l in
        let target, dest =
-         match Contact.find_by_handle entries.Entry.contacts (strip_handle slug) with
+         match Contact.find_by_handle (Entry.contacts entries) (strip_handle slug) with
          | Some c ->
            ( Contact.name c
            , Printf.sprintf
