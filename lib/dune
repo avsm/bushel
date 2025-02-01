@@ -1,0 +1,4 @@
+(library
+  (name bushel)
+  (package bushel)
+  (libraries cmarkit jsont jsont.bytesrw ezjsonm ptime yaml.unix jekyll-format))

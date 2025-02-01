@@ -1,0 +1,1 @@
+module Contact = Contact

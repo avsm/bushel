@@ -1,0 +1,5 @@
+(executable
+ (name bushel)
+ (public_name bushel)
+ (package bushel)
+ (libraries bushel cmdliner))
