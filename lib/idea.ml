@@ -102,8 +102,7 @@ let compare a b =
 ;;
 
 let of_file fname =
-  let read_file f = In_channel.(with_open_text f input_all) in
-  match Jekyll_post.of_string ~fname:(Filename.basename fname) (read_file fname) with
+  match Jekyll_post.of_string ~fname:(Filename.basename fname) (Util.read_file fname) with
   | Error _ -> failwith "TODO"
   | Ok jp ->
     let fields = jp.Jekyll_post.fields in

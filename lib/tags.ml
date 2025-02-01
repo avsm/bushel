@@ -134,12 +134,12 @@ let count_tags ?h fn vs =
   in
   List.iter
     (fun ent ->
-      List.iter
-        (fun tag ->
-          match Hashtbl.find_opt h tag with
-          | Some num -> Hashtbl.replace h tag (num + 1)
-          | None -> Hashtbl.add h tag 1)
-        (fn ent))
+       List.iter
+         (fun tag ->
+            match Hashtbl.find_opt h tag with
+            | Some num -> Hashtbl.replace h tag (num + 1)
+            | None -> Hashtbl.add h tag 1)
+         (fn ent))
     vs;
   h
 ;;

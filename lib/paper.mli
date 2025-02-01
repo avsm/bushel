@@ -10,7 +10,6 @@ type t =
 
 type ts = t list
 
-val of_md : slug:string -> ver:string -> string -> t
 val tv : t list -> ts
 val slug : t -> string
 val title : t -> string
@@ -42,3 +41,4 @@ val compare : t -> t -> int
 val get_papers : slug:string -> ts -> ts
 val slugs : ts -> string list
 val lookup : ts -> string -> t option
+val of_md : slug:string -> ver:string -> string -> t

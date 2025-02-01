@@ -41,3 +41,5 @@ let count_words (text : string) : int =
   in
   count_words_helper 0 false 0
 ;;
+
+let read_file file = In_channel.(with_open_bin file input_all)

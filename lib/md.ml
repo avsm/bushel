@@ -34,13 +34,7 @@ let strip_handle s =
   else s
 ;;
 
-let para_to_string p =
-  let open Cmarkit in
-  Block.Paragraph.inline p
-  |> Inline.to_plain_text ~break_on_soft:false
-  |> fun r -> String.concat "\n" (List.map (String.concat "") r)
-;;
-
+(* FIXME use Tags *)
 let is_bushel_slug = String.starts_with ~prefix:":"
 let is_tag_slug = String.starts_with ~prefix:"##"
 

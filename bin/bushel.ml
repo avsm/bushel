@@ -1,3 +1,3 @@
 open Bushel
 
-let _  = Entry.compare
+let _ = Entry.compare

@@ -164,18 +164,18 @@ let tv (l : t list) =
   let h = Hashtbl.create 7 in
   List.iter
     (fun { slug; ver; _ } ->
-      match Hashtbl.find_opt h slug with
-      | None -> Hashtbl.add h slug [ ver ]
-      | Some l ->
-        let l = ver :: l in
-        let l = List.sort Stdlib.compare l in
-        Hashtbl.replace h slug l)
+       match Hashtbl.find_opt h slug with
+       | None -> Hashtbl.add h slug [ ver ]
+       | Some l ->
+         let l = ver :: l in
+         let l = List.sort Stdlib.compare l in
+         Hashtbl.replace h slug l)
     l;
   List.map
     (fun p ->
-      let latest = Hashtbl.find h p.slug |> List.rev |> List.hd in
-      let latest = p.ver = latest in
-      { p with latest })
+       let latest = Hashtbl.find h p.slug |> List.rev |> List.hd in
+       let latest = p.ver = latest in
+       { p with latest })
     l
 ;;
 

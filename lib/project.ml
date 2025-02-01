@@ -23,7 +23,7 @@ let body { body; _ } = body
 let ideas { ideas; _ } = ideas
 
 let of_file fname =
-  match Jekyll_post.of_string ~fname In_channel.(with_open_bin fname input_all) with
+  match Jekyll_post.of_string ~fname (Util.read_file fname) with
   | Error (`Msg m) -> failwith ("Project.of_file: " ^ m)
   | Ok jp ->
     let fields = jp.Jekyll_post.fields in

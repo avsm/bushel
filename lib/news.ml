@@ -1,9 +1,3 @@
-let date_of_yaml t =
-  match t with
-  | `String date -> Scanf.sscanf date "%d-%d-%d" (fun y m d -> y, m, d)
-  | _ -> failwith "not a date"
-;;
-
 type t =
   { slug : string
   ; slug_ent : string
@@ -21,12 +15,11 @@ let tags t = t.tags
 let title t = t.title
 let date t = t.date
 let body t = t.body
-let read_file file = In_channel.(with_open_bin file input_all)
 let site_url n = "/news/" ^ n.slug
 
 let of_md fname =
   (* TODO fix Jekyll_post to basename the fname all the time *)
-  match Jekyll_post.of_string ~fname:(Filename.basename fname) (read_file fname) with
+  match Jekyll_post.of_string ~fname:(Filename.basename fname) (Util.read_file fname) with
   | Error (`Msg m) -> failwith ("news_of_file: " ^ m)
   | Ok jp ->
     let fields = jp.Jekyll_post.fields in

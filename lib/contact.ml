@@ -57,13 +57,11 @@ let best_url c =
         | None -> None))
 ;;
 
-let read_file file = In_channel.(with_open_bin file input_all)
-
 let of_md fname =
   (* TODO fix Jekyll_post to not error on no date *)
   let fname' = "2000-01-01-" ^ Filename.basename fname in
   let handle = Filename.basename fname |> Filename.chop_extension in
-  match Jekyll_post.of_string ~fname:fname' (read_file fname) with
+  match Jekyll_post.of_string ~fname:fname' (Util.read_file fname) with
   | Error (`Msg m) -> failwith ("contact_of_md: " ^ m)
   | Ok jp ->
     let fields = jp.Jekyll_post.fields |> Jekyll_format.fields_to_yaml in
