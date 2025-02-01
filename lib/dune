@@ -1,6 +1,6 @@
 (library
  (name bushel)
- (package bushel)
+ (public_name bushel)
  (libraries
   cmarkit
   uri

@@ -6,3 +6,6 @@ module Project = Project
 module Video = Video
 module Tags = Tags
 module Entry = Entry
+module Util = Util
+module Srcsetter = Srcsetter
+module Md = Md
