@@ -1,15 +1,17 @@
-type t = {
-  title : string;
-  date : Ptime.date;
-  slug : string;
-  body : string;
-  tags : string list;
-  updated : Ptime.date option;
-  sidebar : string option;
-  index_page : bool;
-  via : (string * string) option;
-}
+type t =
+  { title : string
+  ; date : Ptime.date
+  ; slug : string
+  ; body : string
+  ; tags : string list
+  ; updated : Ptime.date option
+  ; sidebar : string option
+  ; index_page : bool
+  ; via : (string * string) option
+  }
+
 type ts = t list
+
 val link : t -> [> `Ext of string * string | `Local of string ]
 val origdate : t -> Ptime.t
 val date : t -> Ptime.date

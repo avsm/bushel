@@ -1,5 +1,14 @@
+val bushel_inline_mapper
+  :  ?slugs:(string, unit) Hashtbl.t
+  -> Entry.t
+  -> 'a
+  -> Cmarkit.Inline.t
+  -> Cmarkit.Inline.t Cmarkit.Mapper.result
 
-val bushel_inline_mapper :
-  ?slugs:(string, unit) Hashtbl.t ->
-  Entry.t -> 'a -> Cmarkit.Inline.t -> Cmarkit.Inline.t Cmarkit.Mapper.result
+val with_bushel_links
+  :  [< `Def of Cmarkit.Label.t option * Cmarkit.Label.t
+     | `Ref of 'a * Cmarkit.Label.t * Cmarkit.Label.t option
+     ]
+  -> Cmarkit.Label.t option
+
 val scan_for_slugs : Entry.t -> string -> string list
