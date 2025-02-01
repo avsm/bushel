@@ -101,7 +101,7 @@ let compare a b =
   | n -> n
 ;;
 
-let of_file fname =
+let of_md fname =
   match Jekyll_post.of_string ~fname:(Filename.basename fname) (Util.read_file fname) with
   | Error _ -> failwith "TODO"
   | Ok jp ->

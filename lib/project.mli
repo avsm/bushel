@@ -10,10 +10,10 @@ type t =
 
 type ts = t list
 
-val tags : t -> string list
-val compare : t -> t -> int
 val title : t -> string
 val body : t -> string
 val ideas : t -> string
-val of_file : string -> t
 val lookup : t list -> string -> t option
+val tags : t -> string list
+val compare : t -> t -> int
+val of_md : string -> t

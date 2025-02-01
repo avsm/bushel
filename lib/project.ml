@@ -22,7 +22,7 @@ let title { title; _ } = title
 let body { body; _ } = body
 let ideas { ideas; _ } = ideas
 
-let of_file fname =
+let of_md fname =
   match Jekyll_post.of_string ~fname (Util.read_file fname) with
   | Error (`Msg m) -> failwith ("Project.of_file: " ^ m)
   | Ok jp ->
