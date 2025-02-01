@@ -12,7 +12,7 @@ module Srcsetter = Srcsetter
 module Md = Md
 
 let load _base =
-  let _images =
+  let images =
     (* FIXME add to entries *)
     try Srcsetter.list_of_json (Util.read_file "images/index.json") |> Result.get_ok with
     | _ -> [] (* FIXME log *)
@@ -65,5 +65,5 @@ let load _base =
     |> List.filter (fun f -> Filename.check_suffix f ".md")
     |> List.map (fun f -> Video.of_md ("data/videos/" ^ f))
   in
-  Entry.v ~papers ~notes ~projects ~ideas ~videos ~news ~contacts
+  Entry.v ~images ~papers ~notes ~projects ~ideas ~videos ~news ~contacts
 ;;

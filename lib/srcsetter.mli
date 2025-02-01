@@ -8,6 +8,7 @@ type t =
   ; variants : (int * int) MS.t
   }
 
+type ts = t list
 val v : string -> string -> string -> (int * int) MS.t -> int * int -> t
 val origin : t -> string
 val slug : t -> string

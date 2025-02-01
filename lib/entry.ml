@@ -23,6 +23,7 @@ type t =
   ; videos : Video.ts
   ; news : News.ts
   ; contacts : Contact.ts
+  ; images : Srcsetter.ts
   }
 
 let contacts { contacts; _ } = contacts
@@ -31,8 +32,9 @@ let ideas { ideas; _ } = ideas
 let papers { papers; _ } = papers
 let notes { notes; _ } = notes
 let projects { projects; _ } = projects
+let images { images; _ } = images
 
-let v ~papers ~notes ~projects ~ideas ~videos ~news ~contacts =
+let v ~papers ~notes ~projects ~ideas ~videos ~news ~contacts ~images =
   let slugs : slugs = Hashtbl.create 42 in
   let papers, old_papers = List.partition (fun p -> p.Paper.latest) papers in
   List.iter (fun n -> Hashtbl.add slugs n.Note.slug (`Note n)) notes;
@@ -40,7 +42,7 @@ let v ~papers ~notes ~projects ~ideas ~videos ~news ~contacts =
   List.iter (fun i -> Hashtbl.add slugs i.Idea.slug (`Idea i)) ideas;
   List.iter (fun v -> Hashtbl.add slugs v.Video.slug (`Video v)) videos;
   List.iter (fun p -> Hashtbl.add slugs p.Paper.slug (`Paper p)) papers;
-  { slugs; papers; old_papers; notes; projects; ideas; videos; news; contacts }
+  { slugs; papers; old_papers; notes; projects; ideas; videos; news; images; contacts }
 ;;
 
 let lookup { slugs; _ } slug = Hashtbl.find_opt slugs slug

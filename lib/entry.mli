@@ -16,6 +16,7 @@ val ideas : t -> Idea.ts
 val papers : t -> Paper.ts
 val notes : t -> Note.ts
 val projects : t -> Project.ts
+val images : t -> Srcsetter.ts
 
 val v
   :  papers:Paper.t list
@@ -25,6 +26,7 @@ val v
   -> videos:Video.ts
   -> news:News.ts
   -> contacts:Contact.ts
+  -> images:Srcsetter.ts
   -> t
 
 val lookup : t -> string -> entry option
