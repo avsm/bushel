@@ -1,6 +1,7 @@
 # bushel - a reconstruction of livejournal for the 2020s
 
-**wip spec, if you dont know what this is, its probably not ready for you yet**
+**wip spec, if you dont know what this is, its probably not ready for you yet.
+it is extremely work in progress**
 
 Bushel is an implementation of the classic ``webring'' of old times, when a
 smallish group of people would collaborate to share content while maintaining
@@ -12,12 +13,12 @@ Atom feeds, figure out the peer's encodings, and then turn those back into
 datastructures for the local site.
 
 Bushel instead provides a simpler distributed datamodel that is hopefully more
-maintainable in the long term.  Bushel uses the [irmin] git database to
+maintainable in the long term.  Bushel uses the a "resolvable Markdown" format
 directly share filesystem based data structures across the webring. This avoids
-having to roundtrip via XML, and allows direct sharing of typed versioned
+having to roundtrip via Atom's XML, and allows direct sharing of typed versioned
 datastructures across nodes owned by different people.  Examples of such
-datastructures include blog posts, wiki entries, social media feeds, git
-pushes, events and so on.  Every datastructure is versioned with migrations so
+datastructures include blog posts, wiki entries, social media feeds, academic
+papers, events and so on.  Every datastructure is versioned with migrations so
 that older feeds can always be upgraded to newer feeds.
 
 ## Motivation
@@ -68,7 +69,7 @@ The authoring workflow requires minimal work for the users by:
 - **bidirectional links** mean that if you reference someone elses content,
   their site is rebuilt to reflect your link. 
 
-The serving workflow requires a custom OCaml server instead of just static
+The serving workflow requires a custom server instead of just static
 pages, since:
 
 - nodes offer GitHub oAuth to offer per-group privacy settings for content
