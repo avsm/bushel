@@ -43,7 +43,8 @@ let load_papers base =
     |> Array.to_list
     |> List.filter (fun ver -> Filename.check_suffix ver ".md")
     |> List.map (fun ver ->
-      Paper.of_md ~slug ~ver (base ^ "/data/papers/" ^ slug ^ "/" ^ ver)))
+      let ver = Filename.chop_extension ver in
+      Paper.of_md ~slug ~ver (base ^ "/data/papers/" ^ slug ^ "/" ^ ver ^ ".md")))
   |> List.flatten
   |> Paper.tv
 ;;

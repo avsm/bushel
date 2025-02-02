@@ -13,7 +13,7 @@ val url : t -> string option
 val best_url : t -> string option
 val find_by_handle : t list -> string -> t option
 val handle_of_name : string -> string
-val lookup_by_name : t list -> string -> t
+val lookup_by_name : ts -> string -> t
 val json_t : t Jsont.t
 val compare : t -> t -> int
 val of_md : string -> t

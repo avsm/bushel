@@ -113,6 +113,38 @@ let rewrite_bushel_image_reference entries url title dir meta =
   Mapper.ret ent_il
 ;;
 
+type Cmarkit.Inline.t += Obsidian_link of string
+
+let rewrite_label_reference_to_obsidian lb meta =
+  let open Cmarkit in
+  match Inline.Link.referenced_label lb with
+  | None -> Mapper.default
+  | Some l ->
+    let m = Label.meta l in
+    (match Meta.find authorlink m with
+     | Some () ->
+       let slug = Label.key l in
+       let target = Printf.sprintf "[[%s]]" slug in
+       let txt = Obsidian_link target in
+       Mapper.ret txt
+     | None ->
+       (match Meta.find sluglink m with
+        | None -> Mapper.default
+        | Some () ->
+          let slug = Label.key l in
+          if is_bushel_slug slug
+          then (
+            let target = Printf.sprintf "[[%s]]" (strip_handle slug) in
+            let txt = Obsidian_link target in
+            Mapper.ret txt)
+          else if is_tag_slug slug
+          then (
+            let target = Printf.sprintf "#%s" (strip_handle slug) in
+            let txt = Inline.Text (target, meta) in
+            Mapper.ret txt)
+          else Mapper.default))
+;;
+
 let rewrite_label_reference ?slugs entries lb meta =
   let open Cmarkit in
   match Inline.Link.referenced_label lb with
@@ -172,6 +204,20 @@ let rewrite_label_reference ?slugs entries lb meta =
             let ent_il = Inline.Link (ld, meta) in
             Mapper.ret ent_il)
           else Mapper.default))
+;;
+
+let bushel_inline_mapper_to_obsidian entries _m =
+  let open Cmarkit in
+  function
+  | Inline.Link (lb, meta) ->
+    (match link_target_is_bushel lb with
+     | None -> rewrite_label_reference_to_obsidian lb meta
+     | Some (url, title) -> rewrite_bushel_link_reference entries url title meta)
+  | Inline.Image (lb, meta) ->
+    (match image_target_is_bushel lb with
+     | None -> rewrite_label_reference_to_obsidian lb meta
+     | Some (url, alt, dir) -> rewrite_bushel_image_reference entries url alt dir meta)
+  | _ -> Mapper.default
 ;;
 
 let bushel_inline_mapper ?slugs entries _m =

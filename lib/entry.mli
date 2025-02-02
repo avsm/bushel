@@ -59,4 +59,5 @@ val is_index_entry : entry -> bool
 val news_for_slug : t -> string -> News.t list
 val news_for_tag : t -> string -> News.t list
 val all_entries : t -> entry list
+val all_papers : t -> entry list
 val compare : entry -> entry -> int

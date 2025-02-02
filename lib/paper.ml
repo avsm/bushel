@@ -157,6 +157,7 @@ let of_md ~slug ~ver fname =
   | Ok jp ->
     let fields = jp.Jekyll_post.fields |> Jekyll_format.fields_to_yaml in
     let { Jekyll_post.body; _ } = jp in
+    print_endline ("xslug " ^ slug ^ " " ^ ver);
     { slug; ver; abstract = body; paper = fields; latest = false }
 ;;
 

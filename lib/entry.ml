@@ -147,6 +147,10 @@ let news_for_slug { news; _ } slug = List.filter (fun n -> n.News.slug_ent = slu
 let news_for_tag { news; _ } tag = List.filter (fun n -> List.mem tag n.News.tags) news
 let all_entries { slugs; _ } = Hashtbl.fold (fun _ v acc -> v :: acc) slugs []
 
+let all_papers { papers; old_papers; _ } =
+  List.map (fun x -> `Paper x) (papers @ old_papers)
+;;
+
 let compare a b =
   let datetime v = Option.get (Ptime.of_date v) in
   let da = datetime (date a) in
