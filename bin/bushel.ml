@@ -34,7 +34,6 @@ let obsidian_output base output_dir =
           Printf.sprintf "%s-%s" slug ver
         | _ -> Entry.slug ent
       in
-      prerr_endline slug;
       let fname = Filename.concat output_dir (slug ^ ".md") in
       let tags =
         Tags.tags_of_ent e ent
