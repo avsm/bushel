@@ -63,6 +63,11 @@ let to_type_string = function
   | `Video _ -> "video"
 ;;
 
+let synopsis = function
+  | `Note n -> Note.synopsis n
+  | _ -> None
+;;
+
 let slug = function
   | `Paper p -> p.Paper.slug
   | `Note n -> n.Note.slug

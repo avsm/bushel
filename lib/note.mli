@@ -4,9 +4,12 @@ type t =
   ; slug : string
   ; body : string
   ; tags : string list
+  ; draft : bool
   ; updated : Ptime.date option
   ; sidebar : string option
   ; index_page : bool
+  ; synopsis: string option
+  ; titleimage: string option
   ; via : (string * string) option
   }
 
@@ -20,6 +23,9 @@ val compare : t -> t -> int
 val slug : t -> string
 val body : t -> string
 val title : t -> string
+val draft : t -> bool
+val synopsis : t -> string option
+val titleimage : t -> string option
 val tags : t -> string list
 val sidebar : t -> string option
 val lookup : string -> t list -> t

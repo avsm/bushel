@@ -43,6 +43,7 @@ val site_url : entry -> string
 val date : entry -> Ptime.date
 val datetime : entry -> Ptime.t
 val year : entry -> int
+val synopsis : entry -> string option
 
 (* FIXME move to separate module *)
 type feed =
