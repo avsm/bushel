@@ -66,7 +66,7 @@ let url { paper; _ } =
   | _ -> None
 ;;
 
-let pages { paper; _ } = key paper "pages" |> J.get_string
+let pages { paper; _ } = try key paper "pages" |> J.get_string with _ -> ""
 let abstract { abstract; _ } = abstract
 
 let institution { paper; _ } =
@@ -88,7 +88,7 @@ let year { paper; _ } = key paper "year" |> J.get_string |> int_of_string
 
 let publisher { paper; _ } =
   try key paper "publisher" |> J.get_string with
-  | Not_found -> "FIXME"
+  | Not_found -> ""
 ;;
 
 let booktitle { paper; _ } =
