@@ -1,5 +1,11 @@
 (executable
- (name bushel)
- (public_name bushel)
+ (name bushel_obsidian)
+ (public_name bushel-obsidian)
  (package bushel)
  (libraries bushel cmdliner cmarkit))
+
+(executable
+ (name bushel_paper)
+ (public_name bushel_paper)
+ (package bushel)
+ (libraries zotero-translation lwt.unix))
