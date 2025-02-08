@@ -162,3 +162,8 @@ let compare a b =
   let db = datetime (date b) in
   if da = db then compare (title a) (title b) else Ptime.compare da db
 ;;
+
+let lookup_by_name {contacts;_} n =
+  match Contact.lookup_by_name contacts n with
+  | v -> Some v
+  | exception _ -> None

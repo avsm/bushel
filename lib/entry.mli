@@ -31,6 +31,7 @@ val v
 val lookup : t -> string -> entry option
 val lookup_exn : t -> string -> entry
 val lookup_news : t -> string -> News.t option
+val lookup_by_name : t -> string -> Contact.t option
 val old_papers : t -> Paper.ts
 val sidebar : [> `Note of Note.t ] -> string option
 val to_type_string : entry -> string

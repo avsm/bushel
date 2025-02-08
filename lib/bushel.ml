@@ -35,11 +35,12 @@ let load_images base =
 ;;
 
 let load_papers base =
+  Printf.eprintf "load papers %s/data/papers\n%!" base;
   Sys.readdir (base ^ "/data/papers")
   |> Array.to_list
   |> List.filter (fun slug -> Sys.is_directory (base ^ "/data/papers/" ^ slug))
   |> List.map (fun slug ->
-    Sys.readdir ("data/papers/" ^ slug)
+    Sys.readdir (base ^ "/data/papers/" ^ slug)
     |> Array.to_list
     |> List.filter (fun ver -> Filename.check_suffix ver ".md")
     |> List.map (fun ver ->
