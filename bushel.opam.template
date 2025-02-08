@@ -1,0 +1,3 @@
+pin-depends: [
+ [ "zotero-translation.dev" "git+https://github.com/avsm/zotero-translation.git" ]
+]
