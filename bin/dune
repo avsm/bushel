@@ -8,4 +8,4 @@
  (name bushel_paper)
  (public_name bushel_paper)
  (package bushel)
- (libraries zotero-translation lwt.unix))
+ (libraries zotero-translation lwt.unix yaml bushel))
