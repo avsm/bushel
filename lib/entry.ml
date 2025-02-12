@@ -48,6 +48,7 @@ let v ~papers ~notes ~projects ~ideas ~videos ~news ~contacts ~images =
 let lookup { slugs; _ } slug = Hashtbl.find_opt slugs slug
 let lookup_exn { slugs; _ } slug = Hashtbl.find slugs slug
 let lookup_news { news; _ } s = List.find_opt (fun { News.slug; _ } -> slug = s) news
+
 let old_papers { old_papers; _ } = old_papers
 
 let sidebar = function
@@ -99,6 +100,23 @@ let site_url = function
   | `Idea i -> "/ideas/" ^ i.Idea.slug
   | `Video v -> "/videos/" ^ v.Video.slug
 ;;
+
+let lookup_site_url t slug =
+  match lookup t slug with
+  | Some ent -> site_url ent
+  | None ->
+     match lookup_news t slug with
+     | None -> ""
+     | Some news -> News.site_url news
+
+let lookup_title t slug =
+  match lookup t slug with
+  | Some ent -> title ent
+  | None ->
+     match lookup_news t slug with
+     | None -> ""
+     | Some news -> News.title news
+
 
 let date (x : entry) =
   match x with

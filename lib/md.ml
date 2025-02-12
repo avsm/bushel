@@ -85,11 +85,7 @@ let image_target_is_bushel lb =
 
 let rewrite_bushel_link_reference entries slug title meta =
   let open Cmarkit in
-  let dest =
-    match Entry.lookup entries (strip_handle slug) with
-    | Some ent -> Entry.site_url ent
-    | None -> slug
-  in
+  let dest = Entry.lookup_site_url entries (strip_handle slug) in
   let txt = Inline.Text (title, meta) in
   let ld = Link_definition.make ~dest:(dest, meta) () in
   let ll = `Inline (ld, meta) in
@@ -181,9 +177,8 @@ let rewrite_label_reference ?slugs entries lb meta =
              | Some s -> Hashtbl.replace s slug ()
              | _ -> ());
             let target, dest =
-              match Entry.lookup entries (strip_handle slug) with
-              | Some ent -> Entry.title ent, Entry.site_url ent
-              | None -> "Unknown Article", ""
+              let s = strip_handle slug in
+              Entry.lookup_title entries s, Entry.lookup_site_url entries s
             in
             let txt = Inline.Text (target, meta) in
             let ld = Link_definition.make ~dest:(dest, meta) () in
