@@ -2,6 +2,7 @@ module ZT = Zotero_translation
 open Lwt.Infix
 open Printf
 module J = Ezjsonm
+open Cmdliner
 
 let post_to_jekyll j =
   sprintf "---\n%s---\n" (Yaml.to_string_exn j)
@@ -24,11 +25,25 @@ let of_doi zt b ~slug doi =
   print_endline (post_to_jekyll (j :> Yaml.value));
   Lwt.return ()
 
+let base_arg =
+  let doc = "Base directory." in
+  Arg.(required & pos 0 (some string) None & info [] ~docv:"BASE" ~doc)
+
+let slug_arg =
+  let doc = "Slug for the entry." in
+  Arg.(required & pos 1 (some string) None & info [] ~docv:"SLUG" ~doc)
+
+let doi_arg =
+  let doc = "DOI of the entry." in
+  Arg.(required & pos 2 (some string) None & info [] ~docv:"DOI" ~doc)
+
+let cmd_t =
+  Term.(const (fun base slug doi ->
+    let e = Bushel.load base in
+    let zt = ZT.v "http://svr-avsm2-eeg-ce:1969" in
+    Lwt_main.run @@ of_doi zt e ~slug doi
+  ) $ base_arg $ slug_arg $ doi_arg),
+  Term.info "bushel_paper" ~doc:"Bushel Paper CLI"
+
 let () =
-  (* TODO cmdliner *)
-  let base = Sys.argv.(1) in
-  let slug = Sys.argv.(2) in
-  let doi = Sys.argv.(3) in
-  let e = Bushel.load base in
-  let zt = ZT.v "http://svr-avsm2-eeg-ce:1969" in
-  Lwt_main.run @@ of_doi zt e ~slug doi
+  Term.(exit @@ eval cmd_t)

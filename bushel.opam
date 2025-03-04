@@ -18,6 +18,8 @@ depends: [
   "bytesrw"
   "jekyll-format"
   "yaml"
+  "lwt"
+  "cmdliner"
   "odoc" {with-doc}
 ]
 build: [

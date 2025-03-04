@@ -21,4 +21,6 @@
   jsont
   bytesrw
   jekyll-format
-  yaml))
+  yaml
+  lwt
+  cmdliner))
