@@ -1,6 +1,10 @@
 [@@@warning "-26-27-32"]
 module J = Ezjsonm
 
+open Lwt.Infix
+open Cohttp_lwt_unix
+open Cmdliner
+
 (* JSON helper functions *)
 let map_dict fn y =
   match J.get_dict y with
@@ -33,30 +37,12 @@ let rec merge_shadows (y:J.value) =
       | k-> k, (merge_shadows v)) x)
   | `Null | `Bool _ | `Float _ | `String _ -> y
 
-let () =
-  Logs.set_reporter (Logs_fmt.reporter ());
-  Logs_threaded.enable ();
-  Logs.Src.set_level Cohttp_eio.src (Some Debug)
-
-open Cohttp_eio
-
-let null_auth ?ip:_ ~host:_ _ =
-  Ok None (* Warning: use a real authenticator in your code! *)
-
-let https ~authenticator =
-  let tls_config = Tls.Config.client ~authenticator () |> Result.get_ok in
-  fun uri raw ->
-    let host =
-      Uri.host uri |>
-      Option.map (fun x -> Domain_name.(host_exn (of_string_exn x)))
-    in
-    Tls_eio.client_of_flow ?host tls_config raw
-
-let fetch ~sw client url =
-  let resp, body = Client.get ~sw client (Uri.of_string url) in
-  if Http.Status.compare resp.status `OK = 0 then
-    Eio.Buf_read.(parse_exn take_all) body ~max_size:max_int
-  else failwith (Fmt.str "Unexpected HTTP status: %a" Http.Status.pp resp.status)
+let fetch url =
+  Client.get (Uri.of_string url) >>= fun (resp, body) ->
+  if resp.status = `OK then
+    Cohttp_lwt.Body.to_string body
+  else
+    Lwt.fail_with (Fmt.str "Unexpected HTTP status: %d" (Cohttp.Code.code_of_status resp.status))
 
 module SM = Map.Make(String)
 
@@ -73,7 +59,7 @@ let vid_to_shadow_yaml v =
 
 let append_video_yaml_to_yaml v y =
   let v = vid_to_shadow_yaml v in
-  match J.get_list Fun.id y with
+  match Ezjsonm.get_list Fun.id y with
   | l -> `A (v :: l)
   | exception _ -> `A [v]
 
@@ -85,23 +71,18 @@ let add_vids vids existing_vid_urls y =
     else append_video_yaml_to_yaml v y
   ) y vids
 
-let () =
-  Eio_main.run @@ fun env ->
-  let net = Eio.Stdenv.net env in
-  Mirage_crypto_rng_eio.run (module Mirage_crypto_rng.Fortuna) env @@ fun () ->
-  let client = Client.make ~https:(Some (https ~authenticator:null_auth)) net in
-  Eio.Switch.run @@ fun sw ->
+let process_videos output_dir overwrite =
   let base = "https://crank.recoil.org" in
-  let j = fetch ~sw client (base ^ "/api/v1/video-channels/anil/videos?count=100") in
+  fetch (base ^ "/api/v1/video-channels/anil/videos?count=100") >>= fun j ->
   let j = Ezjsonm.from_string j in
   let total = Ezjsonm.find j ["total"] |> Ezjsonm.get_int in
-  Eio.traceln "Total videos: %d" total;
+  Logs.info (fun f -> f "Total videos: %d" total);
   let one_video j =
     let title = Ezjsonm.find j ["name"] |> Ezjsonm.get_string in
     let slug = Ezjsonm.find j ["id"] |> Ezjsonm.get_int |> string_of_int in
     let url = Ezjsonm.find j ["url"] |> Ezjsonm.get_string in
     let uuid = Ezjsonm.find j ["uuid"] |> Ezjsonm.get_string in
-    let embed = base ^ (Ezjsonm.find j ["embedPath"] |> Ezjsonm.get_string) in
+    let _embed = base ^ (Ezjsonm.find j ["embedPath"] |> Ezjsonm.get_string) in
     let description =
       try
          Ezjsonm.find j ["description"] |> Ezjsonm.get_string
@@ -113,13 +94,35 @@ let () =
          Ezjsonm.find j ["publishedAt"] |> Ezjsonm.get_string
     in
     let published_date = Ptime.of_rfc3339 published_date |> Result.get_ok |> fun (c,_,_) -> c in
-    Eio.traceln "Title: %s, URL: %s" title url;
-    {Bushel.Video.description;published_date;title;url;embed;uuid;slug;talk=false;paper=None;project=None}
+    Logs.info (fun f -> f "Title: %s, URL: %s" title url);
+    {Bushel.Video.description; published_date; title; url; uuid; slug; talk=false; paper=None; project=None; tags=[]}
   in
   let vids = Ezjsonm.find j ["data"] |> Ezjsonm.get_list one_video in
-  let by = Yaml_unix.of_file_exn (Fpath.v "bushel/videos.yml") in
-  let byt = Bushel.Video.ts_of_yaml by in
+  let by = Yaml_unix.of_file_exn (Fpath.v (output_dir ^ "/videos.yml")) in
+  let byt = 
+    match by with
+    | `A lst -> List.map (fun yaml -> Bushel.Video.t_of_yaml ~description:"" yaml) lst
+    | _ -> []
+  in
   let existing_vid_urls = List.fold_left (fun acc b -> b.Bushel.Video.url :: acc) [] byt in
   let by = add_vids vids existing_vid_urls by in
-  Yaml_unix.to_file_exn (Fpath.v "bushel/videos.yml") by;
-  ()
+  if overwrite then
+    Yaml_unix.to_file_exn (Fpath.v (output_dir ^ "/videos.yml")) by
+  else
+    Lwt.return ()
+
+let output_dir =
+  let doc = "Output directory" in
+  Arg.(required & pos 0 (some string) None & info [] ~docv:"OUTPUT_DIR" ~doc)
+
+let overwrite =
+  let doc = "Overwrite existing files" in
+  Arg.(value & flag & info ["overwrite"] ~doc)
+
+let cmd =
+  let doc = "Fetch and process videos" in
+  let info = Cmd.info "bushel_video" ~doc in
+  Cmd.v info (Term.(const (fun output_dir overwrite -> Lwt_main.run (process_videos output_dir overwrite)) $ output_dir $ overwrite))
+
+let () =
+  exit (Cmd.eval cmd)

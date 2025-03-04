@@ -37,13 +37,14 @@ let doi_arg =
   let doc = "DOI of the entry." in
   Arg.(required & pos 2 (some string) None & info [] ~docv:"DOI" ~doc)
 
-let cmd_t =
-  Term.(const (fun base slug doi ->
+let cmd =
+  let doc = "Bushel Paper CLI" in
+  let term = Term.(const (fun base slug doi ->
     let e = Bushel.load base in
     let zt = ZT.v "http://svr-avsm2-eeg-ce:1969" in
     Lwt_main.run @@ of_doi zt e ~slug doi
-  ) $ base_arg $ slug_arg $ doi_arg),
-  Term.info "bushel_paper" ~doc:"Bushel Paper CLI"
+  ) $ base_arg $ slug_arg $ doi_arg) in
+  Cmd.v (Cmd.info "bushel_paper" ~doc) term
 
 let () =
-  Term.(exit @@ eval cmd_t)
+  exit (Cmd.eval cmd)

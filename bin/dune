@@ -9,3 +9,9 @@
  (public_name bushel_paper)
  (package bushel)
  (libraries zotero-translation lwt.unix yaml bushel))
+
+(executable
+ (name bushel_video)
+ (public_name bushel_video)
+ (package bushel)
+ (libraries cohttp-lwt-unix lwt.unix yaml bushel cmdliner))
