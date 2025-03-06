@@ -76,6 +76,28 @@ let t_of_yaml ~description = function
   | _ -> failwith "invalid yaml"
 ;;
 
+let to_yaml t =
+  `O [
+    ("title", `String t.title);
+    ("description", `String t.description);
+    ("url", `String t.url);
+    ("uuid", `String t.uuid);
+    ("slug", `String t.slug);
+    ("published_date", `String (Ptime.to_rfc3339 t.published_date));
+    ("talk", `Bool t.talk);
+    ("tags", `A (List.map (fun t -> `String t) t.tags));
+    ("paper", match t.paper with None -> `Null | Some p -> `String p);
+    ("project", match t.project with None -> `Null | Some p -> `String p)
+  ]
+
+let to_file output_dir t =
+  let file_path = Fpath.v (Filename.concat output_dir (t.uuid ^ ".md")) in
+  let yaml = to_yaml t in
+  let yaml_str = Yaml.to_string_exn yaml in
+  let content = "---\n" ^ yaml_str ^ "---\n" in
+  Bos.OS.File.write file_path content
+;;
+
 let of_md fname =
   (* TODO fix Jekyll_post to not error on no date *)
   let fname' = "2000-01-01-" ^ Filename.basename fname in

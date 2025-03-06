@@ -26,3 +26,5 @@ val datetime : t -> Ptime.t
 val talk : t -> bool
 val of_md : string -> t
 val t_of_yaml : description:string -> Yaml.value -> t
+val to_yaml : t -> Yaml.value
+val to_file : string -> t -> (unit, [> `Msg of string]) result

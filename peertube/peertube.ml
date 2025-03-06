@@ -86,11 +86,17 @@ let parse_video_response json =
   let data = J.get_list parse_video videos_json in
   { total; data }
 
-(** Fetch videos from a PeerTube instance channel *)
-let fetch_channel_videos ?(count=100) base_url channel =
+(** Fetch videos from a PeerTube instance channel with pagination support
+    @param count Number of videos to fetch per page
+    @param start Starting index for pagination (0-based)
+    @param base_url Base URL of the PeerTube instance
+    @param channel Channel name to fetch videos from
+    @return A Lwt promise with the video response
+    TODO:claude *)
+let fetch_channel_videos ?(count=20) ?(start=0) base_url channel =
   let open Cohttp_lwt_unix in
-  let url = Printf.sprintf "%s/api/v1/video-channels/%s/videos?count=%d" 
-              base_url channel count in
+  let url = Printf.sprintf "%s/api/v1/video-channels/%s/videos?count=%d&start=%d" 
+              base_url channel count start in
   Client.get (Uri.of_string url) >>= fun (resp, body) ->
   if resp.status = `OK then
     Cohttp_lwt.Body.to_string body >>= fun body_str ->
@@ -99,6 +105,33 @@ let fetch_channel_videos ?(count=100) base_url channel =
   else
     let status_code = Cohttp.Code.code_of_status resp.status in
     Lwt.fail_with (Fmt.str "HTTP error: %d" status_code)
+
+(** Fetch all videos from a PeerTube instance channel using pagination
+    @param page_size Number of videos to fetch per page
+    @param max_pages Maximum number of pages to fetch (None for all pages)
+    @param base_url Base URL of the PeerTube instance
+    @param channel Channel name to fetch videos from
+    @return A Lwt promise with all videos combined
+    TODO:claude *)
+let fetch_all_channel_videos ?(page_size=20) ?max_pages base_url channel =
+  let rec fetch_pages start acc _total_count =
+    fetch_channel_videos ~count:page_size ~start base_url channel >>= fun response ->
+    let all_videos = acc @ response.data in
+    
+    (* Determine if we need to fetch more pages *)
+    let fetched_count = start + List.length response.data in
+    let more_available = fetched_count < response.total in
+    let under_max_pages = match max_pages with
+      | None -> true
+      | Some max -> (start / page_size) + 1 < max
+    in
+    
+    if more_available && under_max_pages then
+      fetch_pages fetched_count all_videos response.total
+    else
+      Lwt.return { total = response.total; data = all_videos }
+  in
+  fetch_pages 0 [] 0
 
 (** Convert a PeerTube video to Bushel.Video.t compatible structure *)
 let to_bushel_video video =

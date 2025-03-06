@@ -27,8 +27,19 @@ val parse_video : Ezjsonm.value -> video
 (** Parse a PeerTube video response *)
 val parse_video_response : Ezjsonm.value -> video_response
 
-(** Fetch videos from a PeerTube instance channel *)
-val fetch_channel_videos : ?count:int -> string -> string -> video_response Lwt.t
+(** Fetch videos from a PeerTube instance channel with pagination support
+    @param count Number of videos to fetch per page (default: 20)
+    @param start Starting index for pagination (0-based) (default: 0)
+    @param base_url Base URL of the PeerTube instance
+    @param channel Channel name to fetch videos from *)
+val fetch_channel_videos : ?count:int -> ?start:int -> string -> string -> video_response Lwt.t
+
+(** Fetch all videos from a PeerTube instance channel using pagination
+    @param page_size Number of videos to fetch per page (default: 20)
+    @param max_pages Maximum number of pages to fetch (None for all pages)
+    @param base_url Base URL of the PeerTube instance
+    @param channel Channel name to fetch videos from *)
+val fetch_all_channel_videos : ?page_size:int -> ?max_pages:int -> string -> string -> video_response Lwt.t
 
 (** Convert a PeerTube video to Bushel.Video.t compatible structure 
     Returns (description, published_date, title, url, uuid, slug) *)
