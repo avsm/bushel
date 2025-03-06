@@ -24,3 +24,15 @@
   yaml
   lwt
   cmdliner))
+
+(package
+ (name peertube)
+ (synopsis "PeerTube API client")
+ (description "Client for interacting with PeerTube instances")
+ (depends
+  (ocaml (>= "5.2.0"))
+  ezjsonm
+  lwt
+  cohttp-lwt-unix
+  ptime
+  fmt))

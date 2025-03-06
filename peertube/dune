@@ -1,0 +1,4 @@
+(library
+ (name peertube)
+ (public_name peertube)
+ (libraries ezjsonm lwt cohttp-lwt-unix ptime fmt))

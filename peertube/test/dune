@@ -1,0 +1,5 @@
+(library
+ (name peertube_test)
+ (libraries peertube ezjsonm alcotest)
+ (inline_tests (deps (source_tree samples)))
+ (preprocess (pps ppx_expect)))

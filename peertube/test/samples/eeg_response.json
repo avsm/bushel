@@ -1,0 +1,41 @@
+{
+  "total": 131,
+  "data": [
+    {
+      "id": 100,
+      "uuid": "123e4567-e89b-12d3-a456-426614174000",
+      "name": "Greg Morrisett - Keynote Speech",
+      "description": "Keynote speech on programming language research and security",
+      "url": "https://eeg.example.org/videos/watch/123e4567-e89b-12d3-a456-426614174000",
+      "embedPath": "/videos/embed/123e4567-e89b-12d3-a456-426614174000",
+      "publishedAt": "2022-06-15T09:00:00.000Z",
+      "originallyPublishedAt": "2022-06-14T16:30:00.000Z",
+      "thumbnailPath": "/static/thumbnails/123e4567-e89b-12d3-a456-426614174000.jpg",
+      "tags": ["keynote", "programming-languages", "security"]
+    },
+    {
+      "id": 99,
+      "uuid": "234f5678-f90c-23e4-b567-537725285111",
+      "name": "Type Systems for Distributed Computing",
+      "description": "An exploration of type systems for distributed systems",
+      "url": "https://eeg.example.org/videos/watch/234f5678-f90c-23e4-b567-537725285111",
+      "embedPath": "/videos/embed/234f5678-f90c-23e4-b567-537725285111",
+      "publishedAt": "2022-06-14T14:45:00.000Z",
+      "originallyPublishedAt": null,
+      "thumbnailPath": "/static/thumbnails/234f5678-f90c-23e4-b567-537725285111.jpg",
+      "tags": ["distributed-systems", "type-systems", "programming-languages"]
+    },
+    {
+      "id": 98,
+      "uuid": "345g6789-0a1d-34f5-c678-648836396222",
+      "name": "Verified Software: From Theory to Practice",
+      "description": "Bridging the gap between formal verification theory and practical applications",
+      "url": "https://eeg.example.org/videos/watch/345g6789-0a1d-34f5-c678-648836396222",
+      "embedPath": "/videos/embed/345g6789-0a1d-34f5-c678-648836396222",
+      "publishedAt": "2022-06-14T10:30:00.000Z",
+      "originallyPublishedAt": "2022-06-13T11:00:00.000Z",
+      "thumbnailPath": "/static/thumbnails/345g6789-0a1d-34f5-c678-648836396222.jpg",
+      "tags": ["formal-verification", "software-engineering", "theory"]
+    }
+  ]
+}

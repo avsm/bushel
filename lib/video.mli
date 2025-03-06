@@ -25,3 +25,4 @@ val date : t -> Ptime.date
 val datetime : t -> Ptime.t
 val talk : t -> bool
 val of_md : string -> t
+val t_of_yaml : description:string -> Yaml.value -> t

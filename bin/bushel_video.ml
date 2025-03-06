@@ -71,43 +71,87 @@ let add_vids vids existing_vid_urls y =
     else append_video_yaml_to_yaml v y
   ) y vids
 
+(* Helper function to parse video from YAML *)
+let parse_video_from_yaml yaml =
+  let get_shadow_string fields k =
+    match J.find_opt yaml ["_" ^ k] with
+    | Some (`String v) -> v
+    | _ -> 
+        match J.find_opt yaml [k] with
+        | Some (`String v) -> v
+        | _ -> failwith ("invalid yaml field: " ^ k)
+  in
+  
+  let slug = get_shadow_string yaml "uuid" in
+  let title = get_shadow_string yaml "title" in
+  let url = get_shadow_string yaml "url" in
+  let uuid = get_shadow_string yaml "uuid" in
+  let description = 
+    match J.find_opt yaml ["_description"] with
+    | Some (`String v) -> v
+    | _ -> 
+      match J.find_opt yaml ["description"] with
+      | Some (`String v) -> v
+      | _ -> ""
+  in
+  let published_date =
+    let date_str = get_shadow_string yaml "published_date" in
+    match Ptime.of_rfc3339 date_str with
+    | Ok (date, _, _) -> date
+    | Error _ -> 
+        Fmt.epr "Warning: could not parse date '%s'\n" date_str;
+        let span = Ptime.Span.of_d_ps (0, 0L) |> Option.get in
+        Ptime.of_span span |> Option.get
+  in
+  
+  let talk =
+    match J.find_opt yaml ["talk"] with
+    | Some (`Bool v) -> v
+    | _ -> false
+  in
+  
+  let tags =
+    match J.find_opt yaml ["tags"] with
+    | Some l -> J.get_list J.get_string l
+    | _ -> []
+  in
+  
+  let paper =
+    match J.find_opt yaml ["paper"] with
+    | Some (`String v) -> Some v
+    | _ -> None
+  in
+  
+  let project =
+    match J.find_opt yaml ["project"] with
+    | Some (`String v) -> Some v
+    | _ -> None
+  in
+  
+  {Bushel.Video.slug; title; tags; published_date; uuid; description; talk; paper; project; url}
+
 let process_videos output_dir overwrite =
-  let base = "https://crank.recoil.org" in
-  fetch (base ^ "/api/v1/video-channels/anil/videos?count=100") >>= fun j ->
-  let j = Ezjsonm.from_string j in
-  let total = Ezjsonm.find j ["total"] |> Ezjsonm.get_int in
-  Logs.info (fun f -> f "Total videos: %d" total);
-  let one_video j =
-    let title = Ezjsonm.find j ["name"] |> Ezjsonm.get_string in
-    let slug = Ezjsonm.find j ["id"] |> Ezjsonm.get_int |> string_of_int in
-    let url = Ezjsonm.find j ["url"] |> Ezjsonm.get_string in
-    let uuid = Ezjsonm.find j ["uuid"] |> Ezjsonm.get_string in
-    let _embed = base ^ (Ezjsonm.find j ["embedPath"] |> Ezjsonm.get_string) in
-    let description =
-      try
-         Ezjsonm.find j ["description"] |> Ezjsonm.get_string
-      with _ -> "" in
-    let published_date =
-      try
-         Ezjsonm.find j ["originallyPublishedAt"] |> Ezjsonm.get_string
-      with _ ->
-         Ezjsonm.find j ["publishedAt"] |> Ezjsonm.get_string
+  let base_url = "https://crank.recoil.org" in
+  let channel = "anil" in
+  Peertube.fetch_channel_videos base_url channel >>= fun response ->
+  Logs.info (fun f -> f "Total videos: %d" response.total);
+  let vids = List.map (fun video ->
+    let (description, published_date, title, url, uuid, slug) = 
+      Peertube.to_bushel_video video 
     in
-    let published_date = Ptime.of_rfc3339 published_date |> Result.get_ok |> fun (c,_,_) -> c in
     Logs.info (fun f -> f "Title: %s, URL: %s" title url);
     {Bushel.Video.description; published_date; title; url; uuid; slug; talk=false; paper=None; project=None; tags=[]}
-  in
-  let vids = Ezjsonm.find j ["data"] |> Ezjsonm.get_list one_video in
+  ) response.data in
   let by = Yaml_unix.of_file_exn (Fpath.v (output_dir ^ "/videos.yml")) in
   let byt = 
     match by with
-    | `A lst -> List.map (fun yaml -> Bushel.Video.t_of_yaml ~description:"" yaml) lst
+    | `A lst -> List.map parse_video_from_yaml lst
     | _ -> []
   in
   let existing_vid_urls = List.fold_left (fun acc b -> b.Bushel.Video.url :: acc) [] byt in
   let by = add_vids vids existing_vid_urls by in
   if overwrite then
-    Yaml_unix.to_file_exn (Fpath.v (output_dir ^ "/videos.yml")) by
+    Lwt.return @@ Yaml_unix.to_file_exn (Fpath.v (output_dir ^ "/videos.yml")) by
   else
     Lwt.return ()
 
