@@ -41,6 +41,11 @@ val fetch_channel_videos : ?count:int -> ?start:int -> string -> string -> video
     @param channel Channel name to fetch videos from *)
 val fetch_all_channel_videos : ?page_size:int -> ?max_pages:int -> string -> string -> video_response Lwt.t
 
+(** Fetch detailed information for a single video by UUID
+    @param base_url Base URL of the PeerTube instance
+    @param uuid UUID of the video to fetch *)
+val fetch_video_details : string -> string -> video Lwt.t
+
 (** Convert a PeerTube video to Bushel.Video.t compatible structure 
     Returns (description, published_date, title, url, uuid, slug) *)
 val to_bushel_video : video -> string * Ptime.t * string * string * string * string

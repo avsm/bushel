@@ -133,6 +133,24 @@ let fetch_all_channel_videos ?(page_size=20) ?max_pages base_url channel =
   in
   fetch_pages 0 [] 0
 
+(** Fetch detailed information for a single video by UUID
+    @param base_url Base URL of the PeerTube instance
+    @param uuid UUID of the video to fetch
+    @return A Lwt promise with the complete video details
+    TODO:claude *)
+let fetch_video_details base_url uuid =
+  let open Cohttp_lwt_unix in
+  let url = Printf.sprintf "%s/api/v1/videos/%s" base_url uuid in
+  Client.get (Uri.of_string url) >>= fun (resp, body) ->
+  if resp.status = `OK then
+    Cohttp_lwt.Body.to_string body >>= fun body_str ->
+    let json = J.from_string body_str in
+    (* Parse the single video details *)
+    Lwt.return (parse_video json)
+  else
+    let status_code = Cohttp.Code.code_of_status resp.status in
+    Lwt.fail_with (Fmt.str "HTTP error: %d" status_code)
+
 (** Convert a PeerTube video to Bushel.Video.t compatible structure *)
 let to_bushel_video video =
   let description = Option.value ~default:"" video.description in
