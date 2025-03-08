@@ -26,6 +26,6 @@ with DONE so that you will know what to do next when reinvoked in the future.
 
 3. DONE. Add pagination support for the Peertube API, and add suitable tests for it.
 
-4. Get the complete description of a video out instead of a ... truncated version.
+4. DONE. Get the complete description of a video out instead of a ... truncated version.
 
-5. Fix the --overwrite flag so that files are written when it is not specified.
+5. DONE. Fix the --overwrite flag so that files are written when it is not specified.

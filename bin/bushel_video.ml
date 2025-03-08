@@ -27,15 +27,13 @@ let process_videos output_dir overwrite =
                 talk=false; paper=None; project=None; tags=full_video.tags}
   ) response.data >>= fun vids ->
   
-  (* Write video files - fixed overwrite flag logic *)
+  (* Write video files *)
   Lwt_list.iter_s (fun video ->
     let file_path = Filename.concat output_dir (video.Bushel.Video.uuid ^ ".md") in
     let file_exists = Sys.file_exists file_path in
     
-    (* Only write file if:
-       - overwrite flag is true, OR
-       - file doesn't exist yet *)
-    if overwrite || not file_exists then
+    (* Write file unless it exists and --overwrite is false *)
+    if not file_exists || overwrite then
       match Bushel.Video.to_file output_dir video with
       | Ok () -> 
           Logs.info (fun f -> f "Wrote video %s to %s" video.Bushel.Video.title file_path);
