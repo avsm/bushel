@@ -43,10 +43,11 @@ let process_videos output_dir overwrite =
       | Error (`Msg e) -> 
           Logs.err (fun f -> f "Failed to write video %s: %s" video.Bushel.Video.title e);
           Lwt.return_unit
-    else
+    else begin
       (* Skip existing files when overwrite is false *)
       Logs.info (fun f -> f "Skipping existing video %s (use --overwrite to replace)" video.Bushel.Video.title);
       Lwt.return_unit
+    end
   ) vids
 
 let output_dir =
