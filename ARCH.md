@@ -19,13 +19,12 @@ with DONE so that you will know what to do next when reinvoked in the future.
    in JSON and turn them into an OCaml data structure. You can run 
    "curl https://crank.recoil.org/api/v1/video-channels/anil/videos?count=100"
    to get an example of what the response structures look like.
-
 2. DONE. Add OCaml expect tests into the repository with other sample responses, by querying
    real data from two other peertube sites: https://watch.eeg.cl.cam.ac.uk and
    https://watch.ocaml.org
-
 3. DONE. Add pagination support for the Peertube API, and add suitable tests for it.
-
 4. DONE. Get the complete description of a video out instead of a ... truncated version.
-
 5. DONE. Fix the --overwrite flag so that files are written when it is not specified.
+6. Add command line flags for the PeerTube endpoint and the remote channel to query,
+   with defaults being https://crank.recoil.org and channel 'anil'.
+7. Ensure we are using the pagination API to retrieve all the videos from the endpoint. 
