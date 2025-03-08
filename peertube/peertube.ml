@@ -129,7 +129,7 @@ let fetch_all_channel_videos ?(page_size=20) ?max_pages base_url channel =
     if more_available && under_max_pages then
       fetch_pages fetched_count all_videos response.total
     else
-      Lwt.return { total = response.total; data = all_videos }
+      Lwt.return all_videos
   in
   fetch_pages 0 [] 0
 

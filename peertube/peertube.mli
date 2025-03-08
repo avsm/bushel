@@ -39,7 +39,7 @@ val fetch_channel_videos : ?count:int -> ?start:int -> string -> string -> video
     @param max_pages Maximum number of pages to fetch (None for all pages)
     @param base_url Base URL of the PeerTube instance
     @param channel Channel name to fetch videos from *)
-val fetch_all_channel_videos : ?page_size:int -> ?max_pages:int -> string -> string -> video_response Lwt.t
+val fetch_all_channel_videos : ?page_size:int -> ?max_pages:int -> string -> string -> video list Lwt.t
 
 (** Fetch detailed information for a single video by UUID
     @param base_url Base URL of the PeerTube instance

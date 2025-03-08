@@ -25,6 +25,6 @@ with DONE so that you will know what to do next when reinvoked in the future.
 3. DONE. Add pagination support for the Peertube API, and add suitable tests for it.
 4. DONE. Get the complete description of a video out instead of a ... truncated version.
 5. DONE. Fix the --overwrite flag so that files are written when it is not specified.
-6. Add command line flags for the PeerTube endpoint and the remote channel to query,
+6. DONE. Add command line flags for the PeerTube endpoint and the remote channel to query,
    with defaults being https://crank.recoil.org and channel 'anil'.
-7. Ensure we are using the pagination API to retrieve all the videos from the endpoint. 
+7. DONE. Ensure we are using the pagination API to retrieve all the videos from the endpoint. 

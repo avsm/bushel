@@ -9,11 +9,9 @@ let setup_log style_renderer level =
   Logs.set_reporter (Logs_fmt.reporter ());
   ()
 
-let process_videos output_dir overwrite =
-  let base_url = "https://crank.recoil.org" in
-  let channel = "anil" in
-  Peertube.fetch_channel_videos base_url channel >>= fun response ->
-  Logs.info (fun f -> f "Total videos: %d" response.total);
+let process_videos output_dir overwrite base_url channel =
+  Peertube.fetch_all_channel_videos base_url channel >>= fun all_videos ->
+  Logs.info (fun f -> f "Total videos: %d" (List.length all_videos));
   
   (* Process each video, fetching full details for complete descriptions *)
   Lwt_list.map_s (fun video ->
@@ -25,7 +23,7 @@ let process_videos output_dir overwrite =
     Logs.info (fun f -> f "Title: %s, URL: %s" title url);
     Lwt.return {Bushel.Video.description; published_date; title; url; uuid; slug; 
                 talk=false; paper=None; project=None; tags=full_video.tags}
-  ) response.data >>= fun vids ->
+  ) all_videos >>= fun vids ->
   
   (* Write video files *)
   Lwt_list.iter_s (fun video ->
@@ -56,6 +54,16 @@ let overwrite =
   let doc = "Overwrite existing files" in
   Arg.(value & flag & info ["overwrite"] ~doc)
 
+let base_url =
+  let doc = "PeerTube base URL" in
+  let default = "https://crank.recoil.org" in
+  Arg.(value & opt string default & info ["url"] ~docv:"URL" ~doc)
+
+let channel =
+  let doc = "PeerTube channel name" in
+  let default = "anil" in
+  Arg.(value & opt string default & info ["channel"] ~docv:"CHANNEL" ~doc)
+
 let setup_log =
   Term.(const setup_log $ Fmt_cli.style_renderer () $ Logs_cli.level ())
 
@@ -63,9 +71,9 @@ let cmd =
   let doc = "Fetch and process videos" in
   let info = Cmd.info "bushel_video" ~doc in
   Cmd.v info 
-    Term.(const (fun output_dir overwrite () -> 
-      Lwt_main.run (process_videos output_dir overwrite)) 
-      $ output_dir $ overwrite $ setup_log)
+    Term.(const (fun output_dir overwrite base_url channel () -> 
+      Lwt_main.run (process_videos output_dir overwrite base_url channel)) 
+      $ output_dir $ overwrite $ base_url $ channel $ setup_log)
 
 let () =
   exit (Cmd.eval cmd)
