@@ -28,3 +28,4 @@ with DONE so that you will know what to do next when reinvoked in the future.
 6. DONE. Add command line flags for the PeerTube endpoint and the remote channel to query,
    with defaults being https://crank.recoil.org and channel 'anil'.
 7. DONE. Ensure we are using the pagination API to retrieve all the videos from the endpoint. 
+8. DONE. If the target yml file already exists, read it in and preserve the "tags", "paper", "project" and "talk" fields from the existing file
