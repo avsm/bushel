@@ -15,3 +15,9 @@
  (public_name bushel_video)
  (package bushel)
  (libraries cohttp-lwt-unix lwt.unix yaml bushel cmdliner peertube fmt fmt.cli fmt.tty logs logs.cli logs.fmt))
+
+(executable
+ (name bushel_thumbs)
+ (public_name bushel-thumbs)
+ (package bushel)
+ (libraries unix lwt.unix bushel cmdliner))

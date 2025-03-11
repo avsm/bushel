@@ -29,3 +29,9 @@ with DONE so that you will know what to do next when reinvoked in the future.
    with defaults being https://crank.recoil.org and channel 'anil'.
 7. DONE. Ensure we are using the pagination API to retrieve all the videos from the endpoint. 
 8. DONE. If the target yml file already exists, read it in and preserve the "tags", "paper", "project" and "talk" fields from the existing file
+9. DONE. Write a new `bushel-thumbs` binary which reads a directory of Bushel.Paper.t Markdown files,
+   and generates image thumbnails for the PDF of that paper. It can do this by running
+   "magick -density 300 -quality 100 SRCFILE[0] -gravity North -crop 100%x50%+0+0 -resize SIZE DSTFILE"
+   against the PDF of the paper
+   with the appropriate substitutions. "magick -identify" should be able to determine the SIZE.
+   Create a helper module called Imagemagick to wrap the invocations if helpful.
