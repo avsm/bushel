@@ -15,7 +15,7 @@ module Imagemagick = struct
   (* Generate thumbnail from PDF *)
   let generate_thumbnail ~pdf_path ~size ~output_path =
     let cmd = 
-      sprintf "magick -density 300 -quality 100 %s[0] -gravity North -crop 100%%x50%%+0+0 -resize %s %s" 
+      sprintf "magick -density 600 -quality 100 %s[0] -gravity North -crop 100%%x50%%+0+0 -resize %s %s" 
         pdf_path size output_path
     in
     eprintf "Running: %s\n%!" cmd;
@@ -30,9 +30,10 @@ let process_paper base_dir output_dir paper =
   if Sys.file_exists pdf_path then (
     try
       let (w, h) = Imagemagick.identify_pdf pdf_path in
-      let size = sprintf "%dx%d" w h in
+      (* Double the dimensions for higher resolution thumbnails *)
+      let size = sprintf "%dx%d" (w * 2) (h * 2) in
       let thumbnail_path = sprintf "%s/%s.png" output_dir slug in
-      printf "Generating thumbnail for %s (size: %s)\n%!" slug size;
+      printf "Generating high-res thumbnail for %s (size: %s)\n%!" slug size;
       match Imagemagick.generate_thumbnail ~pdf_path ~size ~output_path:thumbnail_path with
       | 0 -> printf "Successfully generated thumbnail for %s\n%!" slug
       | n -> eprintf "Error generating thumbnail for %s (exit code: %d)\n%!" slug n

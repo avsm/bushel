@@ -35,3 +35,5 @@ with DONE so that you will know what to do next when reinvoked in the future.
    against the PDF of the paper
    with the appropriate substitutions. "magick -identify" should be able to determine the SIZE.
    Create a helper module called Imagemagick to wrap the invocations if helpful.
+10. DONE. Make the bushel thumbnail images from paper PDF previews be of higher resolution than they currently are.
+11. Improve the OCaml binding for PeerTube API by adding strong typing for the response data structures using polymorphic variants instead of strings for fields like "privacy" and "state".

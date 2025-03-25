@@ -23,6 +23,7 @@
   jekyll-format
   yaml
   lwt
+  peertube
   cmdliner))
 
 (package

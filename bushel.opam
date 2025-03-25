@@ -19,6 +19,7 @@ depends: [
   "jekyll-format"
   "yaml"
   "lwt"
+  "peertube"
   "cmdliner"
   "odoc" {with-doc}
 ]
