@@ -68,6 +68,7 @@ type t =
   ; level : level
   ; project : string
   ; status : status
+  ; month: int
   ; year : int
   ; supervisors : string list
   ; students : string list
@@ -96,7 +97,11 @@ let compare a b =
      | Completed -> compare b.year a.year
      | _ ->
        (match compare a.level b.level with
-        | 0 -> compare b.year a.year
+        | 0 -> begin 
+          match compare b.year a.year with
+          | 0 -> compare b.month a.month
+          | n -> n
+        end
         | n -> n))
   | n -> n
 ;;
@@ -107,7 +112,7 @@ let of_md fname =
   | Ok jp ->
     let fields = jp.Jekyll_post.fields in
     let y = Jekyll_format.fields_to_yaml fields in
-    let year, _, _ = jp.Jekyll_post.date |> Ptime.to_date in
+    let year, month, _ = jp.Jekyll_post.date |> Ptime.to_date in
     let body = jp.Jekyll_post.body in
     let string f = Yaml.Util.(find_exn f y |> Option.get |> to_string |> Result.get_ok) in
     let string' f d =
@@ -145,6 +150,7 @@ let of_md fname =
     ; students = strings "students"
     ; tags = strings "tags"
     ; reading = string' "reading" ""
+    ; month
     ; year
     ; body
     ; url = None (* TODO *)

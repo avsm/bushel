@@ -4,14 +4,6 @@ open Cmdliner
 (** TODO:claude
     Helper module for ImageMagick operations *)
 module Imagemagick = struct
-  (* Run ImageMagick identify to determine image dimensions *)
-  let identify_pdf pdf_path =
-    let cmd = sprintf "magick identify -format '%%w %%h' %s[0]" pdf_path in
-    let ic = Unix.open_process_in cmd in
-    let res = input_line ic in
-    let _ = Unix.close_process_in ic in
-    Scanf.sscanf res "%d %d" (fun w h -> (w, h))
-
   (* Generate thumbnail from PDF *)
   let generate_thumbnail ~pdf_path ~size ~output_path =
     let cmd = 
@@ -29,9 +21,7 @@ let process_paper base_dir output_dir paper =
   let pdf_path = sprintf "%s/static/papers/%s.pdf" base_dir slug in
   if Sys.file_exists pdf_path then (
     try
-      let (w, h) = Imagemagick.identify_pdf pdf_path in
-      (* Double the dimensions for higher resolution thumbnails *)
-      let size = sprintf "%dx%d" (w * 2) (h * 2) in
+      let size = sprintf "2048x" in
       let thumbnail_path = sprintf "%s/%s.png" output_dir slug in
       printf "Generating high-res thumbnail for %s (size: %s)\n%!" slug size;
       match Imagemagick.generate_thumbnail ~pdf_path ~size ~output_path:thumbnail_path with

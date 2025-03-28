@@ -26,6 +26,7 @@ type t =
   ; level : level
   ; project : string
   ; status : status
+  ; month : int
   ; year : int
   ; supervisors : string list
   ; students : string list

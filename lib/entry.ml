@@ -123,7 +123,7 @@ let date (x : entry) =
   | `Paper p -> Paper.date p
   | `Note n -> Note.date n
   | `Project p -> p.Project.start, 1, 1
-  | `Idea i -> i.Idea.year, 1, 1
+  | `Idea i -> i.Idea.year, i.Idea.month, 1
   | `Video v -> Video.date v
 ;;
 
