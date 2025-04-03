@@ -8,7 +8,7 @@
  (name bushel_paper)
  (public_name bushel_paper)
  (package bushel)
- (libraries zotero-translation lwt.unix yaml bushel))
+ (libraries zotero-translation lwt.unix yaml bushel cmdliner))
 
 (executable
  (name bushel_video)
