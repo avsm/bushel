@@ -27,4 +27,4 @@
  (public_name bushel-faces)
  (package bushel)
  (flags (:standard -w -69))
- (libraries cohttp-lwt-unix lwt.unix ezjsonm bushel cmdliner))
+ (libraries cohttp-lwt-unix lwt.unix bushel cmdliner ezjsonm))

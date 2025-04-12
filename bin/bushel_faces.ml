@@ -1,5 +1,6 @@
 open Cmdliner
 open Lwt.Infix
+open Printf
 
 (* Type for person response *)
 type person = {
@@ -57,6 +58,12 @@ let download_thumbnail base_url api_key person_id output_path =
   match resp.status with
   | `OK ->
     Cohttp_lwt.Body.to_string body >>= fun img_data ->
+    (* Ensure output directory exists *)
+    (try
+       let dir = Filename.dirname output_path in
+       if not (Sys.file_exists dir) then Unix.mkdir dir 0o755;
+       Lwt.return_unit
+     with _ -> Lwt.return_unit) >>= fun () ->
     Lwt_io.with_file ~mode:Lwt_io.output output_path
       (fun oc -> Lwt_io.write oc img_data) >>= fun () ->
     Lwt.return_ok output_path
@@ -64,30 +71,94 @@ let download_thumbnail base_url api_key person_id output_path =
     let status_code = Cohttp.Code.code_of_status resp.status in
     Lwt.return_error (Printf.sprintf "HTTP error: %d" status_code)
 
-(* Main function to retrieve face for a name *)
-let get_face base_url api_key name output_dir =
-  Lwt_main.run begin
-    search_person base_url api_key name >>= fun people ->
-    match people with
+(* Get face for a single contact *)
+let get_face_for_contact base_url api_key output_dir contact =
+  let name = Bushel.Contact.name contact in
+  let handle = Bushel.Contact.handle contact in
+  let output_path = Filename.concat output_dir (handle ^ ".jpg") in
+  
+  (* Skip if file already exists *)
+  if Sys.file_exists output_path then
+    Lwt.return (`Skipped (sprintf "Thumbnail for '%s' already exists at %s" name output_path))
+  else begin
+    printf "Processing contact: %s (handle: %s)\n%!" name handle;
+    search_person base_url api_key name >>= function
     | [] -> 
-        Lwt.return (`Error (false, Printf.sprintf "No person found with name '%s'" name))
+        Lwt.return (`Error (sprintf "No person found with name '%s'" name))
     | person :: _ ->
-        let output_filename = Printf.sprintf "%s/%s.jpg" output_dir (String.map (fun c -> if c = ' ' then '_' else c) name) in
-        download_thumbnail base_url api_key person.id output_filename >>= function
+        download_thumbnail base_url api_key person.id output_path >>= function
         | Ok path -> 
-            Lwt.return (`Ok (Printf.sprintf "Saved thumbnail to %s" path))
+            Lwt.return (`Ok (sprintf "Saved thumbnail for '%s' to %s" name path))
         | Error err -> 
-            Lwt.return (`Error (false, err))
+            Lwt.return (`Error (sprintf "Error for '%s': %s" name err))
   end
 
+(* Process all contacts or a specific one *)
+let process_contacts base_dir output_dir specific_handle api_key base_url =
+  printf "Loading Bushel database from %s\n%!" base_dir;
+  let db = Bushel.load base_dir in
+  let contacts = Bushel.Entry.contacts db in
+  printf "Found %d contacts\n%!" (List.length contacts);
+  
+  (* Ensure output directory exists *)
+  if not (Sys.file_exists output_dir) then Unix.mkdir output_dir 0o755;
+  
+  (* Filter contacts based on specific_handle if provided *)
+  let contacts_to_process = 
+    match specific_handle with
+    | Some handle -> 
+        begin match Bushel.Contact.find_by_handle contacts handle with
+        | Some contact -> [contact]
+        | None -> 
+            eprintf "No contact found with handle '%s'\n%!" handle;
+            []
+        end
+    | None -> contacts
+  in
+  
+  (* Process each contact *)
+  let results = Lwt_main.run begin
+    Lwt_list.map_s 
+      (fun contact -> 
+         get_face_for_contact base_url api_key output_dir contact >>= fun result ->
+         Lwt.return (Bushel.Contact.handle contact, result))
+      contacts_to_process
+  end in
+  
+  (* Print summary *)
+  let ok_count = List.length (List.filter (fun (_, r) -> match r with `Ok _ -> true | _ -> false) results) in
+  let error_count = List.length (List.filter (fun (_, r) -> match r with `Error _ -> true | _ -> false) results) in
+  let skipped_count = List.length (List.filter (fun (_, r) -> match r with `Skipped _ -> true | _ -> false) results) in
+  
+  printf "\nSummary:\n";
+  printf "  Successfully processed: %d\n" ok_count;
+  printf "  Errors: %d\n" error_count;
+  printf "  Skipped (already exist): %d\n" skipped_count;
+  
+  (* Print detailed results *)
+  if error_count > 0 then begin
+    printf "\nError details:\n";
+    List.iter (fun (handle, result) ->
+      match result with
+      | `Error msg -> printf "  %s: %s\n" handle msg
+      | _ -> ())
+      results;
+  end;
+  
+  if ok_count > 0 || skipped_count > 0 then 0 else 1
+
 (* Command line interface *)
-let name_arg =
-  let doc = "Name of the person to find" in
-  Arg.(required & pos 0 (some string) None & info [] ~doc ~docv:"NAME")
+let base_dir_arg =
+  let doc = "Base directory containing Bushel data" in
+  Arg.(required & pos 0 (some string) None & info [] ~docv:"BASE_DIR" ~doc)
 
 let output_dir_arg =
-  let doc = "Output directory for thumbnails (defaults to current directory)" in
-  Arg.(value & opt string "." & info ["o"; "output-dir"] ~doc)
+  let doc = "Output directory for thumbnails" in
+  Arg.(required & pos 1 (some string) None & info [] ~docv:"OUTPUT_DIR" ~doc)
+
+let handle_arg =
+  let doc = "Specific contact handle to process. If omitted, process all contacts" in
+  Arg.(value & opt (some string) None & info ["h"; "handle"] ~doc)
 
 let api_key_file_arg =
   let doc = "File containing the Immich API key (defaults to .photos-api)" in
@@ -97,23 +168,17 @@ let base_url_arg =
   let doc = "Base URL of the Immich instance" in
   Arg.(value & opt string "https://photos.recoil.org" & info ["u"; "url"] ~doc)
 
-let faces_cmd =
-  let doc = "Retrieve face thumbnails from Immich" in
+let cmd =
+  let doc = "Retrieve face thumbnails for Bushel contacts from Immich" in
   let info = Cmd.info "bushel-faces" ~doc in
   Cmd.v info Term.(
-    const (fun name output_dir api_key_file base_url ->
+    const (fun base_dir output_dir handle api_key_file base_url ->
       try
         let api_key = read_api_key api_key_file in
-        match get_face base_url api_key name output_dir with
-        | `Ok msg -> 
-            print_endline msg; 
-            0
-        | `Error (_, err) -> 
-            prerr_endline err; 
-            1
+        process_contacts base_dir output_dir handle api_key base_url
       with e -> 
-        prerr_endline (Printexc.to_string e); 
+        eprintf "Error: %s\n%!" (Printexc.to_string e);
         1
-    ) $ name_arg $ output_dir_arg $ api_key_file_arg $ base_url_arg)
+    ) $ base_dir_arg $ output_dir_arg $ handle_arg $ api_key_file_arg $ base_url_arg)
 
-let () = exit (Cmd.eval' faces_cmd)
+let () = exit (Cmd.eval' cmd)
