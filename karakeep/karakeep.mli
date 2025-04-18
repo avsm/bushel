@@ -11,6 +11,10 @@ type bookmark = {
   favourited: bool;
   archived: bool;
   tags: string list;
+  tagging_status: string option;
+  summary: string option;
+  content: (string * string) list;
+  assets: (string * string) list;
 }
 
 (** Type for Karakeep API response containing bookmarks *)
@@ -70,3 +74,23 @@ val fetch_bookmark_details :
 
 (** Convert a Karakeep bookmark to Bushel.Link.t compatible structure *)
 val to_bushel_link : bookmark -> Bushel.Link.t
+
+(** Fetch an asset from the Karakeep server as a binary string
+    @param api_key API key for authentication
+    @param base_url Base URL of the Karakeep instance
+    @param asset_id ID of the asset to fetch
+    @return A Lwt promise with the binary asset data *)
+val fetch_asset :
+  api_key:string ->
+  string ->
+  string ->
+  string Lwt.t
+
+(** Get the asset URL for a given asset ID
+    @param base_url Base URL of the Karakeep instance
+    @param asset_id ID of the asset
+    @return The full URL to the asset *)
+val get_asset_url :
+  string ->
+  string ->
+  string
