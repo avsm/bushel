@@ -277,8 +277,6 @@ let extract_outgoing_links base_dir output_file include_domains exclude_domains 
   (* Process each entry *)
   List.iter (fun entry ->
     let entry_body = Bushel.Entry.body entry in
-    let entry_title = Bushel.Entry.title entry in
-    let entry_type = Bushel.Entry.to_type_string entry in
     let entry_slug = Bushel.Entry.slug entry in
     
     (* Skip empty bodies *)
@@ -318,12 +316,9 @@ let extract_outgoing_links base_dir output_file include_domains exclude_domains 
           let tm = Unix.gmtime now in
           let date = (1900 + tm.tm_year, 1 + tm.tm_mon, tm.tm_mday) in
           
-          let description = Printf.sprintf "Link to %s from %s '%s'" domain entry_type entry_title in
+          let description = "" in
           let metadata = [
-            ("domain", domain);
-            ("source_type", entry_type);
-            ("source_slug", entry_slug);
-            ("extracted", "true");
+            ("bushel_slug", entry_slug);
           ] in
           let link = { Bushel.Link.url; date; description; metadata } in
           outgoing_links := link :: !outgoing_links
@@ -361,10 +356,15 @@ let extract_outgoing_links base_dir output_file include_domains exclude_domains 
       let existing_link = Hashtbl.find url_to_link url in
       let existing_metadata = existing_link.Bushel.Link.metadata in
       
-      (* Create updated metadata *)
+      (* Create updated metadata - keep only bushel_slug if present *)
       let updated_metadata = 
-        ("extracted", "true") ::
-        existing_metadata
+        match List.assoc_opt "bushel_slug" existing_metadata with
+        | Some slug -> [("bushel_slug", slug)]
+        | None -> 
+            (* Try to get source_slug from existing metadata and rename it *)
+            match List.assoc_opt "source_slug" existing_metadata with
+            | Some slug -> [("bushel_slug", slug)]
+            | None -> []
       in
       
       (* Create updated link *)
