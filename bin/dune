@@ -28,3 +28,9 @@
  (package bushel)
  (flags (:standard -w -69))
  (libraries cohttp-lwt-unix lwt.unix bushel cmdliner ezjsonm))
+
+(executable
+ (name bushel_links)
+ (public_name bushel-links)
+ (package bushel)
+ (libraries lwt.unix yaml bushel cmdliner karakeep))

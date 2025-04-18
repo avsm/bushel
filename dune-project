@@ -24,12 +24,25 @@
   yaml
   lwt
   peertube
+  karakeep
   cmdliner))
 
 (package
  (name peertube)
  (synopsis "PeerTube API client")
  (description "Client for interacting with PeerTube instances")
+ (depends
+  (ocaml (>= "5.2.0"))
+  ezjsonm
+  lwt
+  cohttp-lwt-unix
+  ptime
+  fmt))
+
+(package
+ (name karakeep)
+ (synopsis "Karakeep API client for Bushel")
+ (description "Karakeep API client to retrieve bookmarks from Karakeep instances")
  (depends
   (ocaml (>= "5.2.0"))
   ezjsonm

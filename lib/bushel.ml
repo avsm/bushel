@@ -6,6 +6,7 @@ module Paper = Paper
 module Project = Project
 module Video = Video
 module Tags = Tags
+module Link = Link
 module Entry = Entry
 module Util = Util
 module Srcsetter = Srcsetter
