@@ -261,10 +261,16 @@ let fetch_asset ~api_key base_url asset_id =
 
 (** Convert a Karakeep bookmark to Bushel.Link.t compatible structure *)
 let to_bushel_link bookmark =
+  (* Try to find the best title from multiple possible sources *)
   let description = 
     match bookmark.title with
-     | Some title when title <> "" -> title
-     | _ -> bookmark.url
+    | Some title when title <> "" -> title
+    | _ -> 
+        (* Check if there's a title in the content *)
+        let content_title = List.assoc_opt "title" bookmark.content in
+        match content_title with
+        | Some title when title <> "" && title <> "null" -> title
+        | _ -> bookmark.url
   in
   let date = Ptime.to_date bookmark.created_at in
   
