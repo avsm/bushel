@@ -226,6 +226,60 @@ let download_assets_flag_arg =
   let doc = "Download assets (screenshots, etc.) from Karakeep" in
   Arg.(value & flag & info ["download-assets"; "d"] ~doc)
 
+(* Function to create a single bookmark in Karakeep with tags *)
+let create_karakeep_bookmark base_url api_key url title note tags favourited archived output_file =
+  let tags_list = match tags with
+    | None -> []
+    | Some tags_str -> String.split_on_char ',' tags_str |> List.map String.trim
+  in
+  
+  (* Run the Lwt program *)
+  Lwt_main.run (
+    Printf.printf "Creating bookmark for URL: %s\n" url;
+    
+    (* Create the bookmark with tags *)
+    Karakeep.create_bookmark ~api_key ~url ?title ?note ~tags:tags_list ~favourited ~archived base_url >>= fun bookmark ->
+    
+    (* Convert to bushel link *)
+    let bushel_link = Karakeep.to_bushel_link bookmark in
+    
+    (* Add to local file *)
+    let links_file = output_file in
+    let _ = update_links_file links_file bushel_link in
+    
+    Printf.printf "Added bookmark to %s with ID: %s\n" links_file bookmark.id;
+    if tags_list <> [] then
+      Printf.printf "Applied tags: %s\n" (String.concat ", " tags_list);
+    
+    Lwt.return 0
+  )
+
+(* Arguments for create command *)
+let title_arg =
+  let doc = "Title for the bookmark (optional)" in
+  Arg.(value & opt (some string) None & info ["title"; "t"] ~doc ~docv:"TITLE")
+
+let note_arg =
+  let doc = "Note to add to the bookmark (optional)" in
+  Arg.(value & opt (some string) None & info ["note"; "n"] ~doc ~docv:"NOTE")
+
+let tags_arg =
+  let doc = "Tags to add to the bookmark (comma-separated)" in
+  Arg.(value & opt (some string) None & info ["tags"; "T"] ~doc ~docv:"TAGS")
+
+let favourited_flag_arg =
+  let doc = "Mark the bookmark as favourited" in
+  Arg.(value & flag & info ["favourited"; "f"] ~doc)
+
+let archived_flag_arg =
+  let doc = "Mark the bookmark as archived" in
+  Arg.(value & flag & info ["archived"; "a"] ~doc)
+
+let create_cmd =
+  let doc = "Create a new bookmark in Karakeep" in
+  let info = Cmd.info "create" ~doc in
+  Cmd.v info Term.(const create_karakeep_bookmark $ base_url_arg $ api_key_arg $ url_arg $ title_arg $ note_arg $ tags_arg $ favourited_flag_arg $ archived_flag_arg $ karakeep_output_file_arg)
+
 let karakeep_cmd =
   let doc = "Fetch bookmarks from Karakeep" in
   let info = Cmd.info "karakeep" ~doc in
@@ -427,6 +481,6 @@ let extract_cmd =
 let default_cmd =
   let doc = "Manage link collection" in
   let info = Cmd.info "bushel_links" ~doc in
-  Cmd.group info [add_cmd; karakeep_cmd; extract_cmd]
+  Cmd.group info [add_cmd; karakeep_cmd; create_cmd; extract_cmd]
 
 let () = exit (Cmd.eval' default_cmd)

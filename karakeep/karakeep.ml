@@ -25,6 +25,7 @@ type bookmark = {
 type bookmark_response = {
   total: int;
   data: bookmark list;
+  next_cursor: string option;
 }
 
 (** Parse a date string to Ptime.t, defaulting to epoch if invalid *)
@@ -152,30 +153,53 @@ let parse_bookmark_response json =
     let total = J.find json ["total"] |> J.get_int in
     let bookmarks_json = J.find json ["data"] in
     let data = J.get_list parse_bookmark bookmarks_json in
-    { total; data }
+    
+    (* Try to extract nextCursor if available *)
+    let next_cursor = 
+      try Some (J.find json ["nextCursor"] |> J.get_string)
+      with _ -> None
+    in
+    
+    { total; data; next_cursor }
   with _ -> 
     try
       (* Format with bookmarks array *)
       let bookmarks_json = J.find json ["bookmarks"] in
       let data = J.get_list parse_bookmark bookmarks_json in
-      { total = List.length data; data }
+      
+      (* Try to extract nextCursor if available *)
+      let next_cursor = 
+        try Some (J.find json ["nextCursor"] |> J.get_string)
+        with _ -> None
+      in
+      
+      { total = List.length data; data; next_cursor }
     with _ ->
       try
         (* Alternate format without total (for endpoints like /tags/<id>/bookmarks) *)
         let bookmarks_json = json in
         let data = J.get_list parse_bookmark bookmarks_json in
-        { total = List.length data; data }
+        { total = List.length data; data; next_cursor = None }
       with e ->
         Fmt.epr "Error parsing Karakeep response: %s\n" (Printexc.to_string e);
-        { total = 0; data = [] }
+        { total = 0; data = []; next_cursor = None }
 
 (** Fetch bookmarks from a Karakeep instance with pagination support *)
-let fetch_bookmarks ~api_key ?(limit=50) ?(offset=0) ?(include_content=true) ?filter_tags base_url =
+let fetch_bookmarks ~api_key ?(limit=50) ?(offset=0) ?cursor ?(include_content=true) ?filter_tags base_url =
   let open Cohttp_lwt_unix in
   
   (* Base URL for bookmarks API *)
-  let url = Printf.sprintf "%s/api/v1/bookmarks?limit=%d&offset=%d&includeContent=%b" 
-              base_url limit offset include_content in
+  let url_base = Printf.sprintf "%s/api/v1/bookmarks?limit=%d&includeContent=%b" 
+                  base_url limit include_content in
+  
+  (* Add pagination parameter - either cursor or offset *)
+  let url = 
+    match cursor with
+    | Some cursor_value -> 
+        url_base ^ "&cursor=" ^ cursor_value
+    | None -> 
+        url_base ^ "&offset=" ^ string_of_int offset
+  in
   
   (* Add tags filter if provided *)
   let url = match filter_tags with
@@ -201,24 +225,36 @@ let fetch_bookmarks ~api_key ?(limit=50) ?(offset=0) ?(include_content=true) ?fi
 
 (** Fetch all bookmarks from a Karakeep instance using pagination *)
 let fetch_all_bookmarks ~api_key ?(page_size=50) ?max_pages ?filter_tags base_url =
-  let rec fetch_pages offset acc _total_count =
-    fetch_bookmarks ~api_key ~limit:page_size ~offset ?filter_tags base_url >>= fun response ->
+  let rec fetch_pages page_num cursor acc _total_count =
+    (* Use cursor if available, otherwise use offset-based pagination *)
+    (match cursor with
+     | Some cursor_str -> fetch_bookmarks ~api_key ~limit:page_size ~cursor:cursor_str ?filter_tags base_url 
+     | None -> fetch_bookmarks ~api_key ~limit:page_size ~offset:(page_num * page_size) ?filter_tags base_url)
+    >>= fun response ->
+    
     let all_bookmarks = acc @ response.data in
     
     (* Determine if we need to fetch more pages *)
-    let fetched_count = offset + List.length response.data in
-    let more_available = fetched_count < response.total in
+    let more_available = 
+      match response.next_cursor with
+      | Some _ -> true  (* We have a cursor, so there are more results *)
+      | None -> 
+          (* Fall back to offset-based check *)
+          let fetched_count = (page_num * page_size) + List.length response.data in
+          fetched_count < response.total
+    in
+    
     let under_max_pages = match max_pages with
       | None -> true
-      | Some max -> (offset / page_size) + 1 < max
+      | Some max -> page_num + 1 < max
     in
     
     if more_available && under_max_pages then
-      fetch_pages fetched_count all_bookmarks response.total
+      fetch_pages (page_num + 1) response.next_cursor all_bookmarks response.total
     else
       Lwt.return all_bookmarks
   in
-  fetch_pages 0 [] 0
+  fetch_pages 0 None [] 0
 
 (** Fetch detailed information for a single bookmark by ID *)
 let fetch_bookmark_details ~api_key base_url bookmark_id =
@@ -258,6 +294,75 @@ let fetch_asset ~api_key base_url asset_id =
   else
     let status_code = Cohttp.Code.code_of_status resp.status in
     Lwt.fail_with (Fmt.str "Asset fetch error: %d" status_code)
+
+(** Create a new bookmark in Karakeep with optional tags *)
+let create_bookmark ~api_key ~url ?title ?note ?tags ?(favourited=false) ?(archived=false) base_url =
+  let open Cohttp_lwt_unix in
+  
+  (* Prepare the bookmark request body *)
+  let body_obj = [
+    ("type", `String "link");
+    ("url", `String url);
+    ("favourited", `Bool favourited);
+    ("archived", `Bool archived);
+  ] in
+  
+  (* Add optional fields *)
+  let body_obj = match title with
+    | Some title_str -> ("title", `String title_str) :: body_obj
+    | None -> body_obj
+  in
+  
+  let body_obj = match note with
+    | Some note_str -> ("note", `String note_str) :: body_obj
+    | None -> body_obj
+  in
+  
+  (* Convert to JSON *)
+  let body_json = `O body_obj in
+  let body_str = J.to_string body_json in
+  
+  (* Set up headers with API key *)
+  let headers = Cohttp.Header.init ()
+    |> fun h -> Cohttp.Header.add h "Authorization" ("Bearer " ^ api_key)
+    |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
+  in
+  
+  (* Create the bookmark *)
+  let url_endpoint = Printf.sprintf "%s/api/v1/bookmarks" base_url in
+  Client.post ~headers ~body:(Cohttp_lwt.Body.of_string body_str) (Uri.of_string url_endpoint) >>= fun (resp, body) ->
+  
+  if resp.status = `Created || resp.status = `OK then
+    Cohttp_lwt.Body.to_string body >>= fun body_str ->
+    let json = J.from_string body_str in
+    let bookmark = parse_bookmark json in
+    
+    (* If tags are provided, add them to the bookmark *)
+    (match tags with
+     | Some tag_list when tag_list <> [] ->
+         (* Prepare the tags request body *)
+         let tag_objects = List.map (fun tag_name -> 
+           `O [("tagName", `String tag_name)]
+         ) tag_list in
+         
+         let tags_body = `O [("tags", `A tag_objects)] in
+         let tags_body_str = J.to_string tags_body in
+         
+         (* Add tags to the bookmark *)
+         let tags_url = Printf.sprintf "%s/api/v1/bookmarks/%s/tags" base_url bookmark.id in
+         Client.post ~headers ~body:(Cohttp_lwt.Body.of_string tags_body_str) (Uri.of_string tags_url) >>= fun (resp, _) ->
+         
+         if resp.status = `OK then
+           (* Fetch the bookmark again to get updated tags *)
+           fetch_bookmark_details ~api_key base_url bookmark.id
+         else
+           (* Return the bookmark without tags if tag addition failed *)
+           Lwt.return bookmark
+     | _ -> Lwt.return bookmark)
+  else
+    let status_code = Cohttp.Code.code_of_status resp.status in
+    Cohttp_lwt.Body.to_string body >>= fun error_body ->
+    Lwt.fail_with (Fmt.str "Failed to create bookmark. HTTP error: %d. Details: %s" status_code error_body)
 
 (** Convert a Karakeep bookmark to Bushel.Link.t compatible structure *)
 let to_bushel_link bookmark =

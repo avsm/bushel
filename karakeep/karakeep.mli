@@ -21,6 +21,7 @@ type bookmark = {
 type bookmark_response = {
   total: int;
   data: bookmark list;
+  next_cursor: string option;
 }
 
 (** Parse a single bookmark from Karakeep JSON *)
@@ -33,6 +34,7 @@ val parse_bookmark_response : Ezjsonm.value -> bookmark_response
     @param api_key API key for authentication
     @param limit Number of bookmarks to fetch per page (default: 50)
     @param offset Starting index for pagination (0-based) (default: 0)
+    @param cursor Optional pagination cursor for cursor-based pagination (overrides offset when provided)
     @param include_content Whether to include full content (default: true)
     @param filter_tags Optional list of tags to filter by
     @param base_url Base URL of the Karakeep instance
@@ -41,6 +43,7 @@ val fetch_bookmarks :
   api_key:string -> 
   ?limit:int -> 
   ?offset:int -> 
+  ?cursor:string ->
   ?include_content:bool ->
   ?filter_tags:string list ->
   string -> 
@@ -94,3 +97,24 @@ val get_asset_url :
   string ->
   string ->
   string
+
+(** Create a new bookmark in Karakeep with optional tags
+    @param api_key API key for authentication
+    @param url The URL to bookmark
+    @param title Optional title for the bookmark
+    @param note Optional note to add to the bookmark
+    @param tags Optional list of tag names to add to the bookmark
+    @param favourited Whether the bookmark should be marked as favourite (default: false)
+    @param archived Whether the bookmark should be archived (default: false)
+    @param base_url Base URL of the Karakeep instance
+    @return A Lwt promise with the created bookmark *)
+val create_bookmark :
+  api_key:string ->
+  url:string ->
+  ?title:string ->
+  ?note:string ->
+  ?tags:string list ->
+  ?favourited:bool ->
+  ?archived:bool ->
+  string ->
+  bookmark Lwt.t
