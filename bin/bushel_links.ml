@@ -548,14 +548,14 @@ let upload_outlinks api_key output_file base_url limit =
 (* Arguments for upload command *)
 let upload_limit_arg =
   let doc = "Limit the number of links to upload (0 for all)" in
-  Arg.(value & opt int 3 & info ["limit"; "l"] ~doc ~docv:"LIMIT")
+  Arg.(value & opt int 0 & info ["limit"; "l"] ~doc ~docv:"LIMIT")
 
 let upload_file_arg =
   let doc = "Input YAML file. Defaults to outlinks.yml." in
   Arg.(value & opt string "outlinks.yml" & info ["input"; "i"] ~doc ~docv:"FILE")
 
 let upload_cmd =
-  let doc = "Upload outlinks to Karakeep with 'from_blog' tag" in
+  let doc = "Upload all outlinks to Karakeep with 'from_blog' tag" in
   let info = Cmd.info "upload" ~doc in
   Cmd.v info Term.(const upload_outlinks $ api_key_arg $ upload_file_arg $ base_url_arg $ upload_limit_arg)
 
