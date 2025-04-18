@@ -101,6 +101,62 @@ let site_url = function
   | `Video v -> "/videos/" ^ v.Video.slug
 ;;
 
+(** Extract external URLs from markdown content *)
+let extract_external_links md =
+  let open Cmarkit in
+  let urls = ref [] in
+  
+  let is_external_url url =
+    (* XXX FIXME *)
+    let is_bushel_slug = String.starts_with ~prefix:":" in
+    let is_tag_slug = String.starts_with ~prefix:"##" in
+    if is_bushel_slug url || is_tag_slug url then false
+    else 
+      try
+        let uri = Uri.of_string url in
+        match Uri.scheme uri with
+        | Some s when s = "http" || s = "https" -> true
+        | Some _ -> true  (* Any other scheme is considered external *)
+        | None -> false   (* Local references or relative paths *)
+      with _ -> false
+  in
+  
+  let inline_mapper _ = function
+    | Inline.Link (lb, _) | Inline.Image (lb, _) ->
+        let ref = Inline.Link.reference lb in
+        (match ref with
+        | `Inline (ld, _) ->
+            (match Link_definition.dest ld with
+            | Some (url, _) when is_external_url url -> 
+                urls := url :: !urls;
+                Mapper.default
+            | _ -> Mapper.default)
+        | `Ref (_, _, l) ->
+            (* Get the referenced label definition and extract URL if it exists *)
+            let defs = Doc.defs (Doc.of_string ~strict:false md) in
+            (match Label.Map.find_opt (Label.key l) defs with
+            | Some (Link_definition.Def (ld, _)) -> 
+                (match Link_definition.dest ld with
+                | Some (url, _) when is_external_url url ->
+                    urls := url :: !urls
+                | _ -> ())
+            | _ -> ());
+            Mapper.default)
+    | Inline.Autolink (autolink, _) ->
+        let url = Inline.Autolink.link autolink |> fst in
+        if not (Inline.Autolink.is_email autolink) && is_external_url url then
+          urls := url :: !urls;
+        Mapper.default
+    | _ -> Mapper.default
+  in
+  
+  let mapper = Mapper.make ~inline:inline_mapper () in
+  let doc = Doc.of_string ~strict:false md in
+  let _ = Mapper.map_doc mapper doc in
+  List.sort_uniq String.compare !urls
+
+let outgoing_links e = extract_external_links (body e)
+
 let lookup_site_url t slug =
   match lookup t slug with
   | Some ent -> site_url ent

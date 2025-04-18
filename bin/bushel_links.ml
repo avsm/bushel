@@ -231,9 +231,202 @@ let karakeep_cmd =
   let info = Cmd.info "karakeep" ~doc in
   Cmd.v info Term.(const fetch_from_karakeep $ base_url_arg $ api_key_arg $ karakeep_output_file_arg $ download_assets_flag_arg)
 
+(* Function to extract outgoing links from all notes in a Bushel directory *)
+let extract_outgoing_links base_dir output_file include_domains exclude_domains =
+  (* Parse domain filters if provided *)
+  let include_domains_list = match include_domains with
+    | None -> []
+    | Some s -> String.split_on_char ',' s |> List.map String.trim
+  in
+  
+  let exclude_domains_list = match exclude_domains with
+    | None -> []
+    | Some s -> String.split_on_char ',' s |> List.map String.trim
+  in
+  
+  (* Show filter settings if any *)
+  if include_domains_list <> [] then
+    Printf.printf "Including only domains: %s\n" (String.concat ", " include_domains_list);
+  
+  if exclude_domains_list <> [] then
+    Printf.printf "Excluding domains: %s\n" (String.concat ", " exclude_domains_list);
+  (* Load all notes from the base directory *)
+  let notes_dir = Filename.concat base_dir "data/notes" in
+  
+  (* Make sure the notes directory exists *)
+  if not (Sys.file_exists notes_dir) then begin
+    Printf.eprintf "Error: Notes directory %s does not exist\n" notes_dir;
+    exit 1
+  end;
+  
+  (* Load all entries with fallback *)
+  Printf.printf "Loading entries from %s...\n" base_dir;
+  
+  let entries_data = 
+      Bushel.load base_dir
+  in
+  
+  (* Get all entries *)
+  let all_entries = Bushel.Entry.all_entries entries_data in
+  Printf.printf "Loaded %d entries\n" (List.length all_entries);
+  
+  (* Extract outgoing links from all entries *)
+  Printf.printf "Extracting outgoing links...\n";
+  let outgoing_links = ref [] in
+  
+  (* Process each entry *)
+  List.iter (fun entry ->
+    let entry_body = Bushel.Entry.body entry in
+    let entry_title = Bushel.Entry.title entry in
+    let entry_type = Bushel.Entry.to_type_string entry in
+    let entry_slug = Bushel.Entry.slug entry in
+    
+    (* Skip empty bodies *)
+    if entry_body <> "" then begin
+      let links = Bushel.Entry.extract_external_links entry_body in
+      if links <> [] then begin
+      
+      (* Add each link from this entry as a Bushel.Link *)
+      List.iter (fun url ->
+        (* Try to extract domain from URL *)
+        let domain = 
+          try
+            let uri = Uri.of_string url in
+            match Uri.host uri with
+            | Some host -> host
+            | None -> "unknown"
+          with _ -> "unknown"
+        in
+        
+        (* Filter by domain if filters are specified *)
+        let include_by_domain =
+          if include_domains_list <> [] then
+            List.exists (fun filter -> 
+              domain = filter || String.ends_with ~suffix:filter domain
+            ) include_domains_list
+          else true
+        in
+        
+        let exclude_by_domain =
+          List.exists (fun filter -> 
+            domain = filter || String.ends_with ~suffix:filter domain
+          ) exclude_domains_list
+        in
+        
+        if include_by_domain && not exclude_by_domain then begin
+          let now = Unix.gettimeofday () in
+          let tm = Unix.gmtime now in
+          let date = (1900 + tm.tm_year, 1 + tm.tm_mon, tm.tm_mday) in
+          
+          let description = Printf.sprintf "Link to %s from %s '%s'" domain entry_type entry_title in
+          let metadata = [
+            ("domain", domain);
+            ("source_type", entry_type);
+            ("source_slug", entry_slug);
+            ("extracted", "true");
+          ] in
+          let link = { Bushel.Link.url; date; description; metadata } in
+          outgoing_links := link :: !outgoing_links
+        end
+      ) links
+    end
+    end
+  ) all_entries;
+  
+  (* Read existing links if file exists *)
+  let existing_links =
+    try
+      let yaml_str = In_channel.(with_open_bin output_file input_all) in
+      match Yaml.of_string_exn yaml_str with
+      | `A links -> List.map Bushel.Link.t_of_yaml links
+      | _ -> []
+    with _ -> []
+  in
+  
+  (* Create a map from URL to existing link *)
+  let url_to_link = Hashtbl.create 100 in
+  List.iter (fun link -> 
+    let url = Bushel.Link.url link in
+    Hashtbl.replace url_to_link url link
+  ) existing_links;
+  
+  (* Process new links, merge with existing ones if URL already exists *)
+  let new_links = ref [] in
+  let updated_links = ref [] in
+  
+  List.iter (fun link ->
+    let url = Bushel.Link.url link in
+    if Hashtbl.mem url_to_link url then begin
+      (* URL already exists, merge metadata *)
+      let existing_link = Hashtbl.find url_to_link url in
+      let existing_metadata = existing_link.Bushel.Link.metadata in
+      
+      (* Create updated metadata *)
+      let updated_metadata = 
+        ("extracted", "true") ::
+        existing_metadata
+      in
+      
+      (* Create updated link *)
+      let updated_link = { existing_link with Bushel.Link.metadata = updated_metadata } in
+      Hashtbl.replace url_to_link url updated_link;
+      updated_links := updated_link :: !updated_links
+    end else begin
+      (* New URL, add it *)
+      Hashtbl.add url_to_link url link;
+      new_links := link :: !new_links
+    end
+  ) !outgoing_links;
+  
+  (* Get all links that weren't updated *)
+  let unchanged_links = 
+    List.filter (fun link ->
+      let url = Bushel.Link.url link in
+      not (List.exists (fun updated -> Bushel.Link.url updated = url) !updated_links)
+    ) existing_links
+  in
+  
+  (* Combine all links and sort by date (newest first) *)
+  let all_links = !new_links @ !updated_links @ unchanged_links in
+  let sorted_links = List.sort Bushel.Link.compare all_links in
+  
+  (* Write all links to the file *)
+  let yaml = `A (List.map Bushel.Link.to_yaml sorted_links) in
+  let yaml_str = Yaml.to_string_exn ~len:1200000 yaml in
+  let oc = open_out output_file in
+  output_string oc yaml_str;
+  close_out oc;
+  
+  Printf.printf "Added %d new outgoing links to %s\n" (List.length !new_links) output_file;
+  Printf.printf "Updated %d existing links with additional sources\n" (List.length !updated_links);
+  Printf.printf "Total links in file: %d\n" (List.length sorted_links);
+  0
+
+(* Arguments for extract command *)
+let base_dir_arg =
+  let doc = "Base directory of the Bushel project" in
+  Arg.(value & opt string "." & info ["dir"; "d"] ~doc ~docv:"DIR")
+
+let extract_output_file_arg =
+  let doc = "Output YAML file. Defaults to outlinks.yml." in
+  Arg.(value & opt string "outlinks.yml" & info ["output"; "o"] ~doc ~docv:"FILE")
+
+let include_domains_arg =
+  let doc = "Only include links to these domains (comma-separated list). If not specified, all domains are included." in
+  Arg.(value & opt (some string) None & info ["include"] ~doc ~docv:"DOMAINS")
+
+let exclude_domains_arg =
+  let doc = "Exclude links to these domains (comma-separated list)" in
+  Arg.(value & opt (some string) None & info ["exclude"] ~doc ~docv:"DOMAINS")
+
+let extract_cmd =
+  let doc = "Extract outgoing links from notes" in
+  let info = Cmd.info "extract" ~doc in
+  Cmd.v info Term.(const extract_outgoing_links $ base_dir_arg $ extract_output_file_arg $ include_domains_arg $ exclude_domains_arg)
+
 let default_cmd =
   let doc = "Manage link collection" in
   let info = Cmd.info "bushel_links" ~doc in
-  Cmd.group info [add_cmd; karakeep_cmd]
+  Cmd.group info [add_cmd; karakeep_cmd; extract_cmd]
 
 let () = exit (Cmd.eval' default_cmd)
