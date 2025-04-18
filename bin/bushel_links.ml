@@ -478,9 +478,90 @@ let extract_cmd =
   let info = Cmd.info "extract" ~doc in
   Cmd.v info Term.(const extract_outgoing_links $ base_dir_arg $ extract_output_file_arg $ include_domains_arg $ exclude_domains_arg)
 
+(* Function to upload outlinks to Karakeep *)
+let upload_outlinks api_key output_file base_url limit =
+  (* Read outlinks from file *)
+  let links =
+    try
+      let yaml_str = In_channel.(with_open_bin output_file input_all) in
+      match Yaml.of_string_exn yaml_str with
+      | `A links -> List.map Bushel.Link.t_of_yaml links
+      | _ -> []
+    with _ -> []
+  in
+  
+  (* Take only the specified number of links (or all if limit is 0) *)
+  let links_to_upload = 
+    if limit > 0 then 
+      let rec take n lst acc =
+        if n <= 0 || lst = [] then List.rev acc
+        else take (n-1) (List.tl lst) ((List.hd lst) :: acc)
+      in
+      take limit links []
+    else 
+      links
+  in
+  
+  if links_to_upload = [] then begin
+    Printf.printf "No links found in %s or file does not exist.\n" output_file;
+    1
+  end else begin
+    Printf.printf "Uploading %d links to Karakeep...\n" (List.length links_to_upload);
+    
+    (* Run the upload as an Lwt process *)
+    let total_successes = Lwt_main.run (
+      (* Process each link *)
+      Lwt_list.fold_left_s (fun success_count link ->
+        let url = Bushel.Link.url link in
+        let description = Bushel.Link.description link in
+        let title = if description = "" then None else Some description in
+        
+        Printf.printf "Uploading: %s\n" url;
+        
+        (* Create the bookmark with the from_blog tag *)
+        Lwt.catch
+          (fun () ->
+            Karakeep.create_bookmark 
+              ~api_key 
+              ~url 
+              ?title 
+              ~tags:["from_blog"] 
+              base_url 
+            >>= fun bookmark ->
+            
+            Printf.printf "  - Added to Karakeep with ID: %s\n" bookmark.id;
+            Lwt.return (success_count + 1)
+          )
+          (fun exn ->
+            Printf.eprintf "  - Error uploading %s: %s\n" url (Printexc.to_string exn);
+            Lwt.return success_count
+          )
+      ) 0 links_to_upload
+    ) in
+    
+    Printf.printf "Upload complete. %d/%d links uploaded successfully.\n" 
+      total_successes (List.length links_to_upload);
+    
+    0
+  end
+
+(* Arguments for upload command *)
+let upload_limit_arg =
+  let doc = "Limit the number of links to upload (0 for all)" in
+  Arg.(value & opt int 3 & info ["limit"; "l"] ~doc ~docv:"LIMIT")
+
+let upload_file_arg =
+  let doc = "Input YAML file. Defaults to outlinks.yml." in
+  Arg.(value & opt string "outlinks.yml" & info ["input"; "i"] ~doc ~docv:"FILE")
+
+let upload_cmd =
+  let doc = "Upload outlinks to Karakeep with 'from_blog' tag" in
+  let info = Cmd.info "upload" ~doc in
+  Cmd.v info Term.(const upload_outlinks $ api_key_arg $ upload_file_arg $ base_url_arg $ upload_limit_arg)
+
 let default_cmd =
   let doc = "Manage link collection" in
   let info = Cmd.info "bushel_links" ~doc in
-  Cmd.group info [add_cmd; karakeep_cmd; create_cmd; extract_cmd]
+  Cmd.group info [add_cmd; karakeep_cmd; create_cmd; extract_cmd; upload_cmd]
 
 let () = exit (Cmd.eval' default_cmd)
