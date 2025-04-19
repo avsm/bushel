@@ -184,6 +184,11 @@ let parse_bookmark_response json =
         Fmt.epr "Error parsing Karakeep response: %s\n" (Printexc.to_string e);
         { total = 0; data = []; next_cursor = None }
 
+(** Helper function to ensure we consume all response body data *)
+let consume_body body =
+  Cohttp_lwt.Body.to_string body >>= fun _ ->
+  Lwt.return_unit
+
 (** Fetch bookmarks from a Karakeep instance with pagination support *)
 let fetch_bookmarks ~api_key ?(limit=50) ?(offset=0) ?cursor ?(include_content=true) ?filter_tags base_url =
   let open Cohttp_lwt_unix in
@@ -221,6 +226,7 @@ let fetch_bookmarks ~api_key ?(limit=50) ?(offset=0) ?cursor ?(include_content=t
     Lwt.return (parse_bookmark_response json)
   else
     let status_code = Cohttp.Code.code_of_status resp.status in
+    consume_body body >>= fun () ->
     Lwt.fail_with (Fmt.str "HTTP error: %d" status_code)
 
 (** Fetch all bookmarks from a Karakeep instance using pagination *)
@@ -272,6 +278,7 @@ let fetch_bookmark_details ~api_key base_url bookmark_id =
     Lwt.return (parse_bookmark json)
   else
     let status_code = Cohttp.Code.code_of_status resp.status in
+    consume_body body >>= fun () ->
     Lwt.fail_with (Fmt.str "HTTP error: %d" status_code)
 
 (** Get the asset URL for a given asset ID *)
@@ -293,6 +300,7 @@ let fetch_asset ~api_key base_url asset_id =
     Cohttp_lwt.Body.to_string body
   else
     let status_code = Cohttp.Code.code_of_status resp.status in
+    consume_body body >>= fun () ->
     Lwt.fail_with (Fmt.str "Asset fetch error: %d" status_code)
 
 (** Create a new bookmark in Karakeep with optional tags *)
@@ -328,6 +336,12 @@ let create_bookmark ~api_key ~url ?title ?note ?tags ?(favourited=false) ?(archi
     |> fun h -> Cohttp.Header.add h "Content-Type" "application/json"
   in
   
+  (* Helper function to ensure we consume all response body data *)
+  let consume_body body =
+    Cohttp_lwt.Body.to_string body >>= fun _ ->
+    Lwt.return_unit
+  in
+  
   (* Create the bookmark *)
   let url_endpoint = Printf.sprintf "%s/api/v1/bookmarks" base_url in
   Client.post ~headers ~body:(Cohttp_lwt.Body.of_string body_str) (Uri.of_string url_endpoint) >>= fun (resp, body) ->
@@ -350,7 +364,10 @@ let create_bookmark ~api_key ~url ?title ?note ?tags ?(favourited=false) ?(archi
          
          (* Add tags to the bookmark *)
          let tags_url = Printf.sprintf "%s/api/v1/bookmarks/%s/tags" base_url bookmark.id in
-         Client.post ~headers ~body:(Cohttp_lwt.Body.of_string tags_body_str) (Uri.of_string tags_url) >>= fun (resp, _) ->
+         Client.post ~headers ~body:(Cohttp_lwt.Body.of_string tags_body_str) (Uri.of_string tags_url) >>= fun (resp, body) ->
+         
+         (* Always consume the response body *)
+         consume_body body >>= fun () ->
          
          if resp.status = `OK then
            (* Fetch the bookmark again to get updated tags *)

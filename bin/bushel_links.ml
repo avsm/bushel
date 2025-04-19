@@ -479,7 +479,7 @@ let extract_cmd =
   Cmd.v info Term.(const extract_outgoing_links $ base_dir_arg $ extract_output_file_arg $ include_domains_arg $ exclude_domains_arg)
 
 (* Function to upload outlinks to Karakeep *)
-let upload_outlinks api_key output_file base_url limit =
+let upload_outlinks api_key output_file base_url limit max_concurrent delay_seconds =
   (* Read outlinks from file *)
   let links =
     try
@@ -508,35 +508,72 @@ let upload_outlinks api_key output_file base_url limit =
   end else begin
     Printf.printf "Uploading %d links to Karakeep...\n" (List.length links_to_upload);
     
-    (* Run the upload as an Lwt process *)
+    (* Use the provided concurrency and delay parameters *)
+    Printf.printf "Using concurrency: %d, delay between batches: %.1f seconds\n"
+      max_concurrent delay_seconds;
+    
+    (* Split links into batches *)
+    let rec create_batches links acc =
+      match links with
+      | [] -> List.rev acc
+      | _ ->
+          let batch, rest = 
+            if List.length links <= max_concurrent then
+              links, []
+            else
+              let rec take n lst batch =
+                if n = 0 || lst = [] then List.rev batch, lst
+                else take (n-1) (List.tl lst) (List.hd lst :: batch)
+              in
+              take max_concurrent links []
+          in
+          create_batches rest (batch :: acc)
+    in
+    
+    let batches = create_batches links_to_upload [] in
+    Printf.printf "Processing in %d batches of up to %d links each...\n" 
+      (List.length batches) max_concurrent;
+    
+    (* Process each batch *)
     let total_successes = Lwt_main.run (
-      (* Process each link *)
-      Lwt_list.fold_left_s (fun success_count link ->
-        let url = Bushel.Link.url link in
-        let description = Bushel.Link.description link in
-        let title = if description = "" then None else Some description in
+      Lwt_list.fold_left_s (fun total_count batch ->
+        (* Process links in this batch concurrently *)
+        Lwt_list.map_p (fun link ->
+          let url = Bushel.Link.url link in
+          let description = Bushel.Link.description link in
+          let title = if description = "" then None else Some description in
+          
+          Printf.printf "Uploading: %s\n" url;
+          
+          (* Create the bookmark with the from_blog tag *)
+          Lwt.catch
+            (fun () ->
+              Karakeep.create_bookmark 
+                ~api_key 
+                ~url 
+                ?title 
+                ~tags:["from_blog"] 
+                base_url 
+              >>= fun bookmark ->
+              
+              Printf.printf "  - Added to Karakeep with ID: %s\n" bookmark.id;
+              Lwt.return 1 (* Success *)
+            )
+            (fun exn ->
+              Printf.eprintf "  - Error uploading %s: %s\n" url (Printexc.to_string exn);
+              Lwt.return 0 (* Failure *)
+            )
+        ) batch >>= fun results ->
         
-        Printf.printf "Uploading: %s\n" url;
+        (* Count successes in this batch *)
+        let batch_successes = List.fold_left (+) 0 results in
         
-        (* Create the bookmark with the from_blog tag *)
-        Lwt.catch
-          (fun () ->
-            Karakeep.create_bookmark 
-              ~api_key 
-              ~url 
-              ?title 
-              ~tags:["from_blog"] 
-              base_url 
-            >>= fun bookmark ->
-            
-            Printf.printf "  - Added to Karakeep with ID: %s\n" bookmark.id;
-            Lwt.return (success_count + 1)
-          )
-          (fun exn ->
-            Printf.eprintf "  - Error uploading %s: %s\n" url (Printexc.to_string exn);
-            Lwt.return success_count
-          )
-      ) 0 links_to_upload
+        (* Add a delay before processing the next batch *)
+        Lwt_unix.sleep delay_seconds >>= fun () ->
+        
+        (* Return the updated total *)
+        Lwt.return (total_count + batch_successes)
+      ) 0 batches
     ) in
     
     Printf.printf "Upload complete. %d/%d links uploaded successfully.\n" 
@@ -554,10 +591,18 @@ let upload_file_arg =
   let doc = "Input YAML file. Defaults to outlinks.yml." in
   Arg.(value & opt string "outlinks.yml" & info ["input"; "i"] ~doc ~docv:"FILE")
 
+let concurrent_arg =
+  let doc = "Maximum number of concurrent uploads (default: 5)" in
+  Arg.(value & opt int 5 & info ["concurrent"; "c"] ~doc ~docv:"NUM")
+
+let delay_arg =
+  let doc = "Delay in seconds between batches (default: 1.0)" in
+  Arg.(value & opt float 1.0 & info ["delay"; "d"] ~doc ~docv:"SECONDS")
+
 let upload_cmd =
   let doc = "Upload all outlinks to Karakeep with 'from_blog' tag" in
   let info = Cmd.info "upload" ~doc in
-  Cmd.v info Term.(const upload_outlinks $ api_key_arg $ upload_file_arg $ base_url_arg $ upload_limit_arg)
+  Cmd.v info Term.(const upload_outlinks $ api_key_arg $ upload_file_arg $ base_url_arg $ upload_limit_arg $ concurrent_arg $ delay_arg)
 
 let default_cmd =
   let doc = "Manage link collection" in
