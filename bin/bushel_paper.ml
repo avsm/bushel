@@ -7,7 +7,7 @@ open Cmdliner
 let post_to_jekyll j =
   sprintf "---\n%s---\n" (Yaml.to_string_exn j)
 
-let authors b j =
+let _authors b j =
   let keys = J.get_dict j in
   let authors = J.get_list J.get_string (List.assoc "author" keys) in
   let a = 
@@ -19,9 +19,9 @@ let authors b j =
     in
   J.update j ["author"] (Some (`A a))
 
-let of_doi zt b ~slug doi =
+let of_doi zt _b ~slug doi =
   ZT.json_of_doi zt ~slug doi  >>= fun j ->
-  let j = authors b (j:>Ezjsonm.value) in 
+  (* let j = authors b (j:>Ezjsonm.value) in  *)
   print_endline (post_to_jekyll (j :> Yaml.value));
   Lwt.return ()
 

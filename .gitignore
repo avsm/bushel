@@ -1,2 +1,4 @@
 _build
 .*.swp
+
+**/.claude/settings.local.json
