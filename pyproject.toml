@@ -1,0 +1,52 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bushel"
+version = "0.1.0"
+description = "Python implementation of the Bushel knowledge management system"
+authors = [
+    {name = "Bushel Contributors"}
+]
+readme = "README.md"
+requires-python = ">=3.9"
+license = {text = "MIT"}
+classifiers = [
+]
+dependencies = [
+    "PyYAML>=6.0",
+    "pydantic>=2.0.0",
+    "typer>=0.9.0",
+    "rich>=13.0.0",
+]
+
+[project.scripts]
+bushel = "bushel:app"
+
+[project.urls]
+"Homepage" = "https://github.com/avsm/bushel"
+"Bug Tracker" = "https://github.com/avsm/bushel/issues"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = []
+
+[tool.black]
+line-length = 100
+target-version = ["py39"]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+
+[tool.isort]
+profile = "black"
+line_length = 100
