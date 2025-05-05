@@ -1,4 +1,4 @@
-# Bushel File Format Specification
+# Bushel File Format Specification (Refined)
 
 ## Overview
 
@@ -10,6 +10,30 @@ Bushel is a knowledge management system designed to store and organize different
 2. **Database**: A collection of entries stored as individual files in a directory.
 3. **Tags**: Labels attached to entries for categorization and organization.
 4. **Markdown**: The primary format for content, extended with YAML front matter.
+
+## Implementation Notes and Clarifications
+
+Based on practical implementation experience, the following clarifications are offered:
+
+1. **Mandatory vs. Optional Fields**: While the specification lists required fields, implementations should be resilient when parsing entries with missing fields. Sensible defaults should be provided rather than failing to load entries entirely. This ensures backward compatibility with older entries or entries created by different tools.
+
+2. **Database Location**: Implementations should support multiple ways to locate the database directory:
+   - Command-line arguments (e.g., `--db` option)
+   - Environment variables (e.g., `BUSHEL_DB`)
+   - Default locations (e.g., `.db` subdirectory, current directory)
+
+3. **Tag Handling**: Tag parsing should handle diverse formats, including:
+   - Case insensitivity in tag prefixes (`:slug`, `@contact`, `#set`)
+   - Automatic conversion of text tags with years (1900-2100) to year tags
+   - Graceful handling of tags that don't strictly conform to specifications
+
+4. **Date Handling**: Implementations should be flexible with dates:
+   - Extract from filenames for notes and news (YYYY-MM-DD-slug.md)
+   - Support both ISO 8601 dates and separate year/month fields
+   - Handle both numeric and string representation of months (e.g., "jan", "feb", 1, 2)
+   - Provide sensible defaults when dates are missing
+
+5. **Bibliographic Types**: Parse BibTeX types with case-insensitive matching. Non-standard types should be gracefully handled, either by mapping to standard types or using a default type like "misc".
 
 ## File Structure
 
@@ -56,13 +80,13 @@ The YAML front matter is enclosed by `---` lines and contains metadata about the
 
 These fields are common across most entry types:
 
-| Field | Type | Description | Required |
-|-------|------|-------------|----------|
-| `title` | String | Title or summary of the entry | Yes |
-| `slug` | String | Short identifier for the entry | Yes |
-| `tags` | List | List of tags for categorization | No |
-| `date` | Date (YYYY-MM-DD) | Creation or publication date | Most types |
-| `uuid` | UUID | Unique identifier (required in UUID-based entries) | For UUID-based entries |
+| Field | Type | Description | Required | Default if Missing |
+|-------|------|-------------|----------|-------------------|
+| `title` | String | Title or summary of the entry | Yes | Derived from slug or filename |
+| `slug` | String | Short identifier for the entry | Yes | Derived from filename or title |
+| `tags` | List | List of tags for categorization | No | Empty list |
+| `date` | Date (YYYY-MM-DD) | Creation or publication date | Most types | Current date |
+| `uuid` | UUID | Unique identifier (required in UUID-based entries) | For UUID-based entries | Generated UUID |
 
 ## Entry Types
 
@@ -73,16 +97,16 @@ Bushel supports several entry types, each with type-specific fields and conventi
 A basic text note for capturing general information.
 
 **Additional fields:**
-| Field | Type | Description | Required |
-|-------|------|-------------|----------|
-| `date` | ISO 8601 date | Creation date | Yes |
-| `updated` | ISO 8601 date | Last update date | No |
-| `draft` | Boolean | Whether the note is a draft | No |
-| `index_page` | Boolean | Whether the note is an index page | No |
-| `synopsis` | String | Brief summary of the note | No |
-| `titleimage` | String | Image to display with the title | No |
-| `via` | Object | Reference to external source | No |
-| `sidebar` | String | Optional sidebar content | No |
+| Field | Type | Description | Required | Default if Missing |
+|-------|------|-------------|----------|-------------------|
+| `date` | ISO 8601 date | Creation date | Yes | Current date or extracted from filename |
+| `updated` | ISO 8601 date | Last update date | No | None |
+| `draft` | Boolean | Whether the note is a draft | No | False |
+| `index_page` | Boolean | Whether the note is an index page | No | False |
+| `synopsis` | String | Brief summary of the note | No | None |
+| `titleimage` | String | Image to display with the title | No | None |
+| `via` | Object | Reference to external source | No | None |
+| `sidebar` | String | Optional sidebar content | No | None |
 
 Example:
 ```yaml
@@ -130,26 +154,26 @@ Paper entries support versioning through these mechanisms:
 Papers differ from other entry types by storing most metadata as JSON in a `paper` field.
 
 **Additional fields:**
-| Field | Type | Description | Required |
-|-------|------|-------------|----------|
-| `author` | List | List of author names | Yes |
-| `year` | String | Publication year | Yes |
-| `month` | String | Publication month (three-letter code: "jan", "feb", etc.) | No |
-| `bibtype` | String | Bibliographic type (e.g., "article", "inproceedings") | Yes |
-| `doi` | String | Digital Object Identifier | No |
-| `url` | String | URL to the paper | No |
-| `journal` | String | Journal name (for articles) | For articles |
-| `booktitle` | String | Conference/book name (for inproceedings/book chapters) | For conferences |
-| `volume` | String | Volume number | No |
-| `number` | String | Issue number | No |
-| `pages` | String | Page range | No |
-| `publisher` | String | Publisher name | No |
-| `latest` | Boolean | Whether this is the latest version (computed automatically) | No |
-| `projects` | List | Related project slugs | No |
-| `slides` | List | URLs to presentation slides | No |
-| `bib` | String | BibTeX entry | No |
-| `tags` | List | Tags for the paper | No |
-| `keywords` | List | Keywords (treated as additional tags) | No |
+| Field | Type | Description | Required | Default if Missing |
+|-------|------|-------------|----------|-------------------|
+| `author` | List | List of author names | Yes | ["Unknown"] |
+| `year` | String | Publication year | Yes | Current year |
+| `month` | String/Int | Publication month (three-letter code or number) | No | None |
+| `bibtype` | String | Bibliographic type (e.g., "article", "inproceedings") | Yes | "misc" |
+| `doi` | String | Digital Object Identifier | No | None |
+| `url` | String | URL to the paper | No | None |
+| `journal` | String | Journal name (for articles) | For articles | None |
+| `booktitle` | String | Conference/book name (for inproceedings/book chapters) | For conferences | None |
+| `volume` | String | Volume number | No | None |
+| `number` | String | Issue number | No | None |
+| `pages` | String | Page range | No | None |
+| `publisher` | String | Publisher name | No | None |
+| `latest` | Boolean | Whether this is the latest version (computed automatically) | No | False |
+| `projects` | List | Related project slugs | No | Empty list |
+| `slides` | List | URLs to presentation slides | No | Empty list |
+| `bib` | String | BibTeX entry | No | None |
+| `tags` | List | Tags for the paper | No | Empty list |
+| `keywords` | List | Keywords (treated as additional tags) | No | Empty list |
 
 #### Bibliographic Types
 
@@ -159,6 +183,12 @@ Common bibliographic types (`bibtype`) and their interpretation:
 - `techreport` - Technical report (tagged as "report")
 - `misc` - Preprint or miscellaneous (tagged as "preprint")
 - `book` - Book or book chapter (tagged as "book")
+- `abstract` - Extended abstract (non-standard, but common in research)
+- `proceedings` - Complete proceedings (non-standard)
+- `poster` - Poster presentation (non-standard)
+- `workshop` - Workshop paper (non-standard)
+
+**Note**: Implementations should handle non-standard types gracefully, either by mapping to standard types or using "misc" as a fallback.
 
 #### Example:
 ```yaml
@@ -189,16 +219,16 @@ The file would be stored at `data/papers/advances-in-machine-learning/v1.md`.
 A concept or idea to explore further, often used for research project proposals.
 
 **Additional fields:**
-| Field | Type | Description | Required |
-|-------|------|-------------|----------|
-| `level` | String | Academic level (Any, PartII, MPhil, PhD, Postdoc) | Yes |
-| `project` | String | Associated project slug | Yes |
-| `status` | String | Status (Available, Discussion, Ongoing, Completed) | Yes |
-| `year` | Integer | Year of idea creation | Yes |
-| `month` | Integer | Month of idea creation | Yes |
-| `supervisors` | List | List of supervisor handles | No |
-| `students` | List | List of student handles | No |
-| `reading` | String | Suggested reading materials | No |
+| Field | Type | Description | Required | Default if Missing |
+|-------|------|-------------|----------|-------------------|
+| `level` | String | Academic level (Any, PartII, MPhil, PhD, Postdoc) | Yes | "Any" |
+| `project` | String | Associated project slug | Yes | Empty string |
+| `status` | String | Status (Available, Discussion, Ongoing, Completed) | Yes | "Available" |
+| `year` | Integer/String | Year of idea creation | Yes | Current year |
+| `month` | Integer/String | Month of idea creation | Yes | 1 |
+| `supervisors` | List | List of supervisor handles | No | Empty list |
+| `students` | List | List of student handles | No | Empty list |
+| `reading` | String | Suggested reading materials | No | None |
 
 Example:
 ```yaml
@@ -228,10 +258,10 @@ Develop a new algorithm that optimizes data processing...
 A defined project with goals and status.
 
 **Additional fields:**
-| Field | Type | Description | Required |
-|-------|------|-------------|----------|
-| `status` | String | Project status (e.g., "active", "completed", "planned") | Yes |
-| `start` | Integer | Project start year | Yes |
+| Field | Type | Description | Required | Default if Missing |
+|-------|------|-------------|----------|-------------------|
+| `status` | String | Project status (e.g., "active", "completed", "planned") | Yes | "active" |
+| `start` | Integer/String | Project start year | Yes | Current year |
 
 Example:
 ```yaml
@@ -254,15 +284,18 @@ Project to implement the Bushel format in Python.
 Information about a person or organization.
 
 **Additional fields:**
-| Field | Type | Description | Required |
-|-------|------|-------------|----------|
-| `name` | String | Full name of the contact | Yes |
-| `handle` | String | Unique identifier for the contact | Yes |
-| `email` | String | Email address | No |
-| `organization` | String | Organization or company | No |
-| `website` | String | Website URL | No |
-| `twitter` | String | Twitter/X handle | No |
-| `github` | String | GitHub username | No |
+| Field | Type | Description | Required | Default if Missing |
+|-------|------|-------------|----------|-------------------|
+| `names` | List[String] | List of name variations for the contact | Yes | [] |
+| `name` | String | Full name of the contact (deprecated - use names instead) | No | First entry from names list |
+| `handle` | String | Unique identifier for the contact | Yes | Same as slug |
+| `email` | String | Email address | No | None |
+| `organization` | String | Organization or company | No | None |
+| `website` | String | Website URL | No | None |
+| `twitter` | String | Twitter/X handle | No | None |
+| `github` | String | GitHub username | No | None |
+
+**Note**: When displaying contacts in lists or user interfaces, implementations MUST use the first entry from the `names` array as the primary display name, not the `title` field. This ensures consistent display of contact names.
 
 Example:
 ```yaml
@@ -270,7 +303,10 @@ Example:
 type: contact
 title: Jane Doe
 slug: jane-doe
-name: Jane Doe
+names:
+  - Jane Doe
+  - Jane M. Doe
+  - Dr. Jane Doe
 handle: jane
 email: jane@example.com
 organization: Example Corp
@@ -290,12 +326,12 @@ Notes about Jane and our collaboration.
 A news item or article reference.
 
 **Additional fields:**
-| Field | Type | Description | Required |
-|-------|------|-------------|----------|
-| `date` | ISO 8601 date | Publication date | Yes |
-| `source` | String | News source | Yes |
-| `url` | String | URL to the news article | No |
-| `slug_ent` | String | Related entity slug | No |
+| Field | Type | Description | Required | Default if Missing |
+|-------|------|-------------|----------|-------------------|
+| `date` | ISO 8601 date | Publication date | Yes | Current date or extracted from filename |
+| `source` | String | News source | Yes | Empty string |
+| `url` | String | URL to the news article | No | None |
+| `slug_ent` | String | Related entity slug | No | None |
 
 Example:
 ```yaml
@@ -320,16 +356,16 @@ Researchers have achieved a significant breakthrough...
 A reference to a video.
 
 **Additional fields:**
-| Field | Type | Description | Required |
-|-------|------|-------------|----------|
-| `uuid` | String | Unique identifier (used as filename in UUID-based structure) | Yes |
-| `slug` | String | Short identifier (used as filename in category-based structure) | Yes |
-| `url` | String | URL to the video | Yes |
-| `published_date` | ISO 8601 date | Publication date | Yes |
-| `description` | String | Video description | Yes |
-| `talk` | Boolean | Whether the video is a talk/presentation | No |
-| `paper` | String | Related paper slug | No |
-| `project` | String | Related project slug | No |
+| Field | Type | Description | Required | Default if Missing |
+|-------|------|-------------|----------|-------------------|
+| `uuid` | String | Unique identifier (used as filename in UUID-based structure) | Yes | Generated UUID |
+| `slug` | String | Short identifier (used as filename in category-based structure) | Yes | Derived from title |
+| `url` | String | URL to the video | Yes | Empty string |
+| `published_date` | ISO 8601 date | Publication date | Yes | Current date |
+| `description` | String | Video description | Yes | Same as title |
+| `talk` | Boolean | Whether the video is a talk/presentation | No | False |
+| `paper` | String | Related paper slug | No | None |
+| `project` | String | Related project slug | No | None |
 
 Example (Category-based structure):
 ```yaml
@@ -496,11 +532,71 @@ A typical Bushel database consists of:
 
    **Important**: The subdirectory name determines the type of entry. The Bushel library loads files from these specific directories and processes them according to their type, without requiring explicit type fields in the front matter.
 
-2. **UUID-Based Structure**
-   - Typically used for external content sources like PeerTube videos
-   - Flat directory with all entries as UUID-named files (e.g., `053fb1b4-d9e0-4bdc-b119-39326d90f62e.md`)
-   - Front matter contains both the UUID and a separate slug field
-   - Without subdirectory categorization, these files typically need additional metadata to indicate their type
+2. **Alternative Structure Forms**
+   - **Without data/ subdirectory**: Some databases may organize entries directly under the root, omitting the `data/` prefix. Implementations should detect this by looking for category directories at the root.
+   - **UUID-Based Structure**: Typically used for external content sources like PeerTube videos. Flat directory with all entries as UUID-named files (e.g., `053fb1b4-d9e0-4bdc-b119-39326d90f62e.md`). Front matter contains both the UUID and a separate slug field. Without subdirectory categorization, these files need additional metadata to indicate their type.
+
+## Implementation Considerations
+
+When implementing a Bushel-compatible system, consider:
+
+1. **Directory Discovery and Configuration**:
+   - Support multiple ways to locate the database directory (args, env vars, defaults)
+   - Auto-detect whether entries are in a `data/` subdirectory or directly at the root
+   - Provide a clean configuration interface for users to specify paths
+
+2. **Resilient Parsing**:
+   - Handle missing required fields with sensible defaults
+   - Be flexible with date formats, supporting both ISO dates and separate year/month fields
+   - Support both string and numeric months, with conversion between formats
+   - Case-insensitive matching for enumerated values (status, level, bibtype)
+
+3. **File Naming and Organization**:
+   - Support both category-based and UUID-based naming schemes
+   - Extract dates from filenames when appropriate
+   - Handle nested directory structures for papers with versions
+
+4. **Relationship Handling**:
+   - Build bidirectional indexes for quick cross-reference lookups
+   - Support all tag types, including special prefixes
+   - Provide filtering and query capabilities based on tags and references
+
+5. **Error Recovery**:
+   - Log parsing errors but continue processing when possible
+   - Attempt to extract minimal useful data even from malformed entries
+   - Provide clear feedback about validation issues
+
+6. **User Interface Considerations**:
+   - Show loading progress for large databases
+   - Provide a clean CLI with filtering options
+   - Support for quiet modes and verbosity controls
+   - Rich output formatting when possible
+
+## CLI Interface Recommendations
+
+A Bushel implementation should provide a command-line interface with these features:
+
+1. **Database Specification**:
+   ```bash
+   bushel --db /path/to/database command [options]
+   ```
+   - Support for environment variables: `BUSHEL_DB=/path/to/db bushel command`
+   - Default to standard locations: `.db/` subdirectory or current directory
+
+2. **Common Commands**:
+   - `list`: List entries with filtering and limits
+   - `show`: Display details of a specific entry
+   - `tags`: List and count tags across entries
+   - `slugs`: Show all entry slugs for quick reference
+   - `summary`: Display database statistics and overview
+
+3. **Filtering Options**:
+   - By entry type: `--type note`
+   - By tag: `--tag research`
+   - Limiting results: `--limit 50`
+   - Sorting: `--sort date` or `--sort name`
+
+By following these recommendations, implementations can provide a consistent and user-friendly experience while maintaining compatibility with the Bushel format specification.
 
 ## Jekyll Compatibility
 
@@ -548,22 +644,6 @@ One important aspect of Bushel is automatic tag scanning:
 3. **Body Tags**: References in the body content using the special syntax (`:slug`, `@contact`, etc.) are also considered implicit tags
 
 The system scans Markdown content to find all referenced entries, building a network of relationships automatically.
-
-## Implementation Considerations
-
-When implementing a Bushel-compatible system, consider:
-
-1. **Directory Significance**: The subdirectory an entry resides in determines its type (e.g., files in `data/notes/` are notes, files in `data/papers/` are papers)
-2. **File Naming**: Support both category-based naming (with Jekyll-style dates) and UUID-based naming
-3. **YAML Parsing**: Use a robust YAML parser that handles the front matter format
-4. **Date Extraction**: Implement the various date extraction methods from filenames and front matter
-5. **Markdown Parsing**: Use a Markdown parser that can be extended with custom link handling
-6. **Cross-Reference Scanning**: Add link resolution similar to the `scan_for_slugs` function in the reference implementation
-7. **Tag Management**: Implement both explicit and implicit tagging, including body content scanning
-8. **Entry Relationships**: Support the complex relationships between different entry types
-9. **Paper Versioning**: Handle the nested directory structure and versioning system for papers
-10. **Error Handling**: Gracefully handle missing fields or malformed entries
-11. **Timeline Generation**: Support sorting entries by date for chronological views
 
 ## Data Relationships and Entry Network
 
@@ -636,253 +716,6 @@ Implementations should support the following operations:
 5. **List**: Enumerate entries, optionally filtered by type or tags
 6. **Link**: Find related entries via tags or explicit references
 7. **Export**: Convert entries to other formats (optional)
-
-## Example Implementation Pseudocode
-
-Here are examples of how to implement key components of a Bushel-compatible system.
-
-### Loading the Database
-
-```python
-def load_database(base_directory):
-    db = Database()
-    
-    # Load all entry types
-    db.papers = load_papers(base_directory + "/data/papers")
-    db.notes = load_notes(base_directory + "/data/notes")
-    db.ideas = load_ideas(base_directory + "/data/ideas")
-    db.projects = load_projects(base_directory + "/data/projects")
-    db.contacts = load_contacts(base_directory + "/data/contacts")
-    db.videos = load_videos(base_directory + "/data/videos")
-    db.news = load_news(base_directory + "/data/news")
-    
-    # Build slug index
-    db.slug_index = {}
-    for entry_list in [db.papers, db.notes, db.ideas, db.projects, db.videos]:
-        for entry in entry_list:
-            db.slug_index[entry.slug] = entry
-            
-    # Scan for references in content
-    for entry_type in db.all_entries():
-        for entry in entry_type:
-            entry.references = scan_for_references(entry.body, db)
-            
-    return db
-
-def load_papers(papers_dir):
-    papers = []
-    
-    # Find all paper directories
-    for slug_dir in list_directories(papers_dir):
-        slug = os.path.basename(slug_dir)
-        
-        # Find all version files
-        versions = []
-        for file in list_files(slug_dir, "*.md"):
-            ver = os.path.basename(file).replace(".md", "")
-            paper = parse_paper_file(file, slug, ver)
-            versions.append(paper)
-        
-        # Determine latest version
-        versions.sort(key=lambda p: p.ver)
-        if versions:
-            versions[-1].latest = True
-            
-        papers.extend(versions)
-        
-    return papers
-```
-
-### Reading an Entry
-
-```python
-def read_entry(file_path):
-    file_content = read_file(file_path)
-    
-    # Split front matter and content
-    parts = split_by_triple_dash_delimiters(file_content)
-    if len(parts) != 3:  # [empty, front_matter, content]
-        raise "Invalid format: missing front matter delimiters"
-    
-    front_matter = parse_yaml(parts[1])
-    content = parts[2].strip()
-    
-    # Determine entry type from the directory
-    entry_type = determine_type_from_directory(file_path)
-    
-    # Extract common fields and type-specific fields
-    if entry_type == "note":
-        entry = parse_note(front_matter, content, file_path)
-    elif entry_type == "paper":
-        slug = os.path.basename(os.path.dirname(file_path))
-        ver = os.path.basename(file_path).replace(".md", "")
-        entry = parse_paper(front_matter, content, slug, ver)
-    elif entry_type == "video":
-        entry = parse_video(front_matter, content)
-    # ... and so on for other types
-    
-    # Extract date from filename for certain types
-    if entry_type in ["note", "news"] and entry.date is None:
-        basename = os.path.basename(file_path)
-        date_match = re.match(r"(\d{4}-\d{2}-\d{2})-.*\.md", basename)
-        if date_match:
-            entry.date = parse_date(date_match.group(1))
-    
-    return entry
-```
-
-### Scanning for References
-
-```python
-def scan_for_references(content, database):
-    """Scan markdown content for Bushel-style references."""
-    references = []
-    
-    # Regular expressions for different reference types
-    slug_pattern = r'\[:([^\]]+)\]'  # Matches [:slug]
-    contact_pattern = r'\[@([^\]]+)\]'  # Matches [@handle]
-    tag_pattern = r'\[##([^\]]+)\]'  # Matches [##tag]
-    
-    # Find all slug references
-    for match in re.finditer(slug_pattern, content):
-        slug = match.group(1)
-        if slug in database.slug_index:
-            references.append({
-                "type": "slug",
-                "slug": slug,
-                "target": database.slug_index[slug]
-            })
-    
-    # Find all contact references
-    for match in re.finditer(contact_pattern, content):
-        handle = match.group(1)
-        contact = database.find_contact_by_handle(handle)
-        if contact:
-            references.append({
-                "type": "contact",
-                "handle": handle,
-                "target": contact
-            })
-    
-    # Find all tag references
-    for match in re.finditer(tag_pattern, content):
-        tag = match.group(1)
-        references.append({
-            "type": "tag",
-            "tag": tag
-        })
-    
-    return references
-```
-
-### Converting Markdown with References
-
-```python
-def render_markdown_with_references(content, database):
-    """Convert Markdown with Bushel references to HTML with proper links."""
-    
-    # Function to replace slug references with links
-    def replace_slug_ref(match):
-        slug = match.group(1)
-        entry = database.find_by_slug(slug)
-        if entry:
-            return f'<a href="{entry.url}">{entry.title}</a>'
-        return match.group(0)  # Return unchanged if not found
-    
-    # Function to replace contact references with links
-    def replace_contact_ref(match):
-        handle = match.group(1)
-        contact = database.find_contact_by_handle(handle)
-        if contact:
-            url = contact.url or f"/contacts/{contact.handle}"
-            return f'<a href="{url}">{contact.name}</a>'
-        return match.group(0)
-    
-    # Function to replace tag references with links
-    def replace_tag_ref(match):
-        tag = match.group(1)
-        return f'<a href="/news?t={tag}">{tag}</a>'
-    
-    # Replace all reference types
-    content = re.sub(r'\[:([^\]]+)\]', replace_slug_ref, content)
-    content = re.sub(r'\[@([^\]]+)\]', replace_contact_ref, content)
-    content = re.sub(r'\[##([^\]]+)\]', replace_tag_ref, content)
-    
-    # Convert the modified markdown to HTML
-    html = convert_markdown_to_html(content)
-    return html
-```
-
-### Generating Entry Views
-
-```python
-def generate_feed(database, limit=20, tag=None):
-    """Generate a time-ordered feed of entries, optionally filtered by tag."""
-    
-    # Collect entries from different types
-    entries = []
-    
-    for paper in database.papers:
-        if not tag or tag in paper.tags or tag == "papers":
-            entries.append({"type": "paper", "entry": paper, "date": paper.date})
-    
-    for note in database.notes:
-        if not tag or tag in note.tags or tag == "notes":
-            entries.append({"type": "note", "entry": note, "date": note.date})
-    
-    # Add other entry types similarly...
-    
-    # Sort by date, newest first
-    entries.sort(key=lambda e: e["date"], reverse=True)
-    
-    # Return limited number of entries
-    return entries[:limit]
-```
-
-### Exporting to Obsidian Format
-
-```python
-def export_to_obsidian(database, output_dir):
-    """Export the database to Obsidian-compatible format."""
-    
-    # Create output directory
-    os.makedirs(output_dir, exist_ok=True)
-    
-    # Export all entries
-    for entry_type in ["notes", "papers", "ideas", "projects"]:
-        for entry in getattr(database, entry_type):
-            # Convert references to Obsidian format
-            content = convert_references_to_obsidian(entry.body)
-            
-            # Create frontmatter
-            frontmatter = {
-                "title": entry.title,
-                "date": format_date(entry.date),
-                "tags": entry.tags,
-                "type": entry_type[:-1]  # Remove plural 's'
-            }
-            
-            # Write file
-            filename = f"{entry.slug}.md"
-            write_file(
-                os.path.join(output_dir, filename),
-                format_frontmatter(frontmatter) + "\n\n" + content
-            )
-
-def convert_references_to_obsidian(content):
-    """Convert Bushel reference syntax to Obsidian syntax."""
-    # Convert slug references to wiki links
-    content = re.sub(r'\[:([^\]]+)\]', r'[[\\1]]', content)
-    
-    # Convert tag references to Obsidian tags
-    content = re.sub(r'\[##([^\]]+)\]', r'#\\1', content)
-    
-    # Keep contact references as is, or convert as needed
-    
-    return content
-```
-
-These examples demonstrate the key components needed for a working implementation of the Bushel format. A complete implementation would include additional error handling, more sophisticated markdown processing, and support for all entry types and relationships.
 
 ## Conclusion
 
