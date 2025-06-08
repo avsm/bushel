@@ -1,15 +1,21 @@
-type karakeep_id = {
+type karakeep_data = {
   remote_url : string;
   id : string;
+  tags : string list;
+  metadata : (string * string) list;
+}
+
+type bushel_data = {
+  slugs : string list;
+  tags : string list;
 }
 
 type t = {
   url : string;
   date : Ptime.date;
   description : string;
-  metadata : (string * string) list;
-  karakeep_id : karakeep_id option;
-  bushel_slugs : string list;
+  karakeep : karakeep_data option;
+  bushel : bushel_data option;
 }
 
 type ts = t list
@@ -45,48 +51,72 @@ let t_of_yaml = function
       | Some (`String v) -> v
       | _ -> ""
     in
-    let metadata =
-      match List.assoc_opt "metadata" fields with
-      | Some (`O meta_fields) -> 
-          List.fold_left (fun acc (k, v) ->
-            match v with
-            | `String value -> (k, value) :: acc
-            | _ -> acc
-          ) [] meta_fields
-      | _ -> []
-    in
-    let karakeep_id =
-      match List.assoc_opt "karakeep_id" fields with
-      | Some (`O ki_fields) ->
+    let karakeep =
+      match List.assoc_opt "karakeep" fields with
+      | Some (`O k_fields) ->
           let remote_url = 
-            match List.assoc_opt "remote_url" ki_fields with
+            match List.assoc_opt "remote_url" k_fields with
             | Some (`String v) -> v
-            | _ -> failwith "link: invalid karakeep_id.remote_url"
+            | _ -> failwith "link: invalid karakeep.remote_url"
           in
           let id = 
-            match List.assoc_opt "id" ki_fields with
+            match List.assoc_opt "id" k_fields with
             | Some (`String v) -> v
-            | _ -> failwith "link: invalid karakeep_id.id"
+            | _ -> failwith "link: invalid karakeep.id"
           in
-          Some { remote_url; id }
+          let tags =
+            match List.assoc_opt "tags" k_fields with
+            | Some (`A tag_list) ->
+                List.fold_left (fun acc tag ->
+                  match tag with
+                  | `String t -> t :: acc
+                  | _ -> acc
+                ) [] tag_list
+                |> List.rev
+            | _ -> []
+          in
+          let metadata =
+            match List.assoc_opt "metadata" k_fields with
+            | Some (`O meta_fields) -> 
+                List.fold_left (fun acc (k, v) ->
+                  match v with
+                  | `String value -> (k, value) :: acc
+                  | _ -> acc
+                ) [] meta_fields
+            | _ -> []
+          in
+          Some { remote_url; id; tags; metadata }
       | _ -> None
     in
-    let bushel_slugs =
-      match List.assoc_opt "bushel_slugs" fields with
-      | Some (`A items) -> 
-          List.fold_left (fun acc item ->
-            match item with
-            | `String slug -> slug :: acc
-            | _ -> acc
-          ) [] items
-          |> List.rev
-      | _ -> 
-          (* For backward compatibility, check for a bushel_slug in metadata *)
-          match List.assoc_opt "bushel_slug" metadata with
-          | Some slug -> [slug]
-          | None -> []
+    let bushel =
+      match List.assoc_opt "bushel" fields with
+      | Some (`O b_fields) ->
+          let slugs =
+            match List.assoc_opt "slugs" b_fields with
+            | Some (`A slug_list) ->
+                List.fold_left (fun acc slug ->
+                  match slug with
+                  | `String s -> s :: acc
+                  | _ -> acc
+                ) [] slug_list
+                |> List.rev
+            | _ -> []
+          in
+          let tags =
+            match List.assoc_opt "tags" b_fields with
+            | Some (`A tag_list) ->
+                List.fold_left (fun acc tag ->
+                  match tag with
+                  | `String t -> t :: acc
+                  | _ -> acc
+                ) [] tag_list
+                |> List.rev
+            | _ -> []
+          in
+          Some { slugs; tags }
+      | _ -> None
     in
-    { url; date; description; metadata; karakeep_id; bushel_slugs }
+    { url; date; description; karakeep; bushel }
   | _ -> failwith "invalid yaml"
 
 (* Read file contents *)
@@ -114,30 +144,44 @@ let to_yaml t =
   (if t.description = "" then [] else [("description", `String t.description)])
   in
   
-  (* Add metadata if present *)
-  let metadata_fields = 
-    if t.metadata = [] then []
-    else [("metadata", `O (List.map (fun (k, v) -> (k, `String v)) t.metadata))]
-  in
-  
-  (* Add karakeep_id if present *)
+  (* Add karakeep data if present *)
   let karakeep_fields =
-    match t.karakeep_id with
-    | Some { remote_url; id } -> 
-        [("karakeep_id", `O [
+    match t.karakeep with
+    | Some { remote_url; id; tags; metadata } -> 
+        let karakeep_obj = [
           ("remote_url", `String remote_url);
-          ("id", `String id)
-        ])]
+          ("id", `String id);
+        ] in
+        let karakeep_obj = 
+          if tags = [] then karakeep_obj
+          else ("tags", `A (List.map (fun t -> `String t) tags)) :: karakeep_obj
+        in
+        let karakeep_obj =
+          if metadata = [] then karakeep_obj
+          else ("metadata", `O (List.map (fun (k, v) -> (k, `String v)) metadata)) :: karakeep_obj
+        in
+        [("karakeep", `O karakeep_obj)]
     | None -> []
   in
   
-  (* Add bushel_slugs if present *)
-  let bushel_slugs_fields =
-    if t.bushel_slugs = [] then []
-    else [("bushel_slugs", `A (List.map (fun slug -> `String slug) t.bushel_slugs))]
+  (* Add bushel data if present *)
+  let bushel_fields =
+    match t.bushel with
+    | Some { slugs; tags } -> 
+        let bushel_obj = [] in
+        let bushel_obj = 
+          if slugs = [] then bushel_obj
+          else ("slugs", `A (List.map (fun s -> `String s) slugs)) :: bushel_obj
+        in
+        let bushel_obj =
+          if tags = [] then bushel_obj
+          else ("tags", `A (List.map (fun t -> `String t) tags)) :: bushel_obj
+        in
+        if bushel_obj = [] then [] else [("bushel", `O bushel_obj)]
+    | None -> []
   in
   
-  `O (base_fields @ metadata_fields @ karakeep_fields @ bushel_slugs_fields)
+  `O (base_fields @ karakeep_fields @ bushel_fields)
 
 (* Write a link to a file in the output directory *)
 let to_file output_dir t =
@@ -192,16 +236,33 @@ let merge_links existing new_links =
           else old_link.description 
         in
         
-        (* Combine karakeep_id (prefer new over old) *)
-        let karakeep_id = 
-          match new_link.karakeep_id with
-          | Some _ -> new_link.karakeep_id
-          | None -> old_link.karakeep_id
+        (* Combine karakeep data (prefer new over old) *)
+        let karakeep = 
+          match new_link.karakeep, old_link.karakeep with
+          | Some new_k, Some old_k when new_k.remote_url = old_k.remote_url ->
+              (* Same remote, merge the data *)
+              let merged_metadata =
+                let meta_tbl = Hashtbl.create (List.length old_k.metadata) in
+                List.iter (fun (k, v) -> Hashtbl.replace meta_tbl k v) old_k.metadata;
+                List.iter (fun (k, v) -> Hashtbl.replace meta_tbl k v) new_k.metadata;
+                Hashtbl.fold (fun k v acc -> (k, v) :: acc) meta_tbl []
+              in
+              let merged_tags = List.sort_uniq String.compare (old_k.tags @ new_k.tags) in
+              Some { new_k with metadata = merged_metadata; tags = merged_tags }
+          | Some new_k, _ -> Some new_k
+          | None, old_k -> old_k
         in
         
-        (* Combine bushel_slugs (remove duplicates) *)
-        let bushel_slugs = 
-          List.sort_uniq String.compare (old_link.bushel_slugs @ new_link.bushel_slugs)
+        (* Combine bushel data *)
+        let bushel = 
+          match new_link.bushel, old_link.bushel with
+          | Some new_b, Some old_b ->
+              (* Merge slugs and tags *)
+              let merged_slugs = List.sort_uniq String.compare (old_b.slugs @ new_b.slugs) in
+              let merged_tags = List.sort_uniq String.compare (old_b.tags @ new_b.tags) in
+              Some { slugs = merged_slugs; tags = merged_tags }
+          | Some new_b, _ -> Some new_b
+          | None, old_b -> old_b
         in
         
         (* Combined link *)
@@ -209,9 +270,8 @@ let merge_links existing new_links =
           url = new_link.url;
           date = (if compare new_link old_link > 0 then new_link.date else old_link.date);
           description = title;
-          metadata = old_link.metadata @ new_link.metadata; (* might need deduplication *)
-          karakeep_id;
-          bushel_slugs
+          karakeep;
+          bushel
         } in
         Hashtbl.replace links_by_url new_link.url merged_link
   ) new_links;

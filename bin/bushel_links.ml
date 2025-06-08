@@ -202,13 +202,19 @@ let update_from_bushel bushel_dir links_file include_domains exclude_domains =
           if include_by_domain && not exclude_by_domain then begin
             let date = Bushel.Entry.date entry in
             
+            (* Extract tags from the entry *)
+            let entry_tags = Bushel.Tags.tags_of_ent entries_data entry in
+            let tag_strings = List.map Bushel.Tags.to_string entry_tags in
+            
             let link = { 
               Bushel.Link.url; 
               date; 
               description = ""; 
-              metadata = [];
-              karakeep_id = None;
-              bushel_slugs = [entry_slug];
+              karakeep = None;
+              bushel = Some { 
+                Bushel.Link.slugs = [entry_slug]; 
+                tags = tag_strings 
+              };
             } in
             extracted_links := link :: !extracted_links
           end
@@ -242,9 +248,9 @@ let upload_to_karakeep base_url api_key_opt links_file tag max_concurrent delay_
       (* Load links from file *)
       let links = Bushel.Link.load_links_file links_file in
       
-      (* Filter links that don't have a karakeep_id for this remote *)
+      (* Filter links that don't have karakeep data for this remote *)
       let links_to_upload = List.filter (fun link ->
-        match link.Bushel.Link.karakeep_id with
+        match link.Bushel.Link.karakeep with
         | Some { remote_url; _ } when remote_url = base_url -> false
         | _ -> true
       ) links in
@@ -255,10 +261,12 @@ let upload_to_karakeep base_url api_key_opt links_file tag max_concurrent delay_
   end else begin
     Printf.printf "Found %d links to upload to %s\n" (List.length links_to_upload) base_url;
     
-    (* Prepare tags - include provided tag and add bushel_slugs as tags *)
+    (* Prepare tags - include provided tag and add bushel slugs as tags *)
     let prepare_tags link =
       let slug_tags = 
-        List.map (fun slug -> "bushel:" ^ slug) link.Bushel.Link.bushel_slugs 
+        match link.Bushel.Link.bushel with
+        | Some { slugs; _ } -> List.map (fun slug -> "bushel:" ^ slug) slugs
+        | None -> []
       in
       if tag = "" then slug_tags
       else tag :: slug_tags
@@ -316,11 +324,16 @@ let upload_to_karakeep base_url api_key_opt links_file tag max_concurrent delay_
                     base_url 
                   >>= fun bookmark ->
                   
-                  (* Create updated link with karakeep_id *)
+                  (* Create updated link with karakeep data *)
                   let updated_link = {
                     link with 
-                    Bushel.Link.karakeep_id = 
-                      Some { Bushel.Link.remote_url = base_url; id = bookmark.id }
+                    Bushel.Link.karakeep = 
+                      Some { 
+                        Bushel.Link.remote_url = base_url; 
+                        id = bookmark.id;
+                        tags = bookmark.tags;
+                        metadata = [];  (* Will be populated on next sync *)
+                      }
                   } in
                   updated_links := updated_link :: !updated_links;
                   

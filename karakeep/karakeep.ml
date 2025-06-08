@@ -287,7 +287,7 @@ let consume_body body =
   Lwt.return_unit
 
 (** Fetch bookmarks from a Karakeep instance with pagination support *)
-let fetch_bookmarks ~api_key ?(limit=50) ?(offset=0) ?cursor ?(include_content=true) ?filter_tags base_url =
+let fetch_bookmarks ~api_key ?(limit=50) ?(offset=0) ?cursor ?(include_content=false) ?filter_tags base_url =
   let open Cohttp_lwt_unix in
   
   (* Base URL for bookmarks API *)
@@ -355,12 +355,12 @@ let fetch_bookmarks ~api_key ?(limit=50) ?(offset=0) ?cursor ?(include_content=t
     )
 
 (** Fetch all bookmarks from a Karakeep instance using pagination *)
-let fetch_all_bookmarks ~api_key ?(page_size=50) ?max_pages ?filter_tags base_url =
+let fetch_all_bookmarks ~api_key ?(page_size=50) ?max_pages ?filter_tags ?(include_content=false) base_url =
   let rec fetch_pages page_num cursor acc _total_count =
     (* Use cursor if available, otherwise use offset-based pagination *)
     (match cursor with
-     | Some cursor_str -> fetch_bookmarks ~api_key ~limit:page_size ~cursor:cursor_str ?filter_tags base_url 
-     | None -> fetch_bookmarks ~api_key ~limit:page_size ~offset:(page_num * page_size) ?filter_tags base_url)
+     | Some cursor_str -> fetch_bookmarks ~api_key ~limit:page_size ~cursor:cursor_str ~include_content ?filter_tags base_url 
+     | None -> fetch_bookmarks ~api_key ~limit:page_size ~offset:(page_num * page_size) ~include_content ?filter_tags base_url)
     >>= fun response ->
     
     let all_bookmarks = acc @ response.data in
@@ -521,28 +521,36 @@ let to_bushel_link ?base_url bookmark =
   in
   let date = Ptime.to_date bookmark.created_at in
   
-  (* Build comprehensive metadata from all available fields *)
+  (* Build selective metadata - only include useful fields *)
   let metadata = 
     (match bookmark.summary with Some s -> [("summary", s)] | None -> []) @
-    (match bookmark.tagging_status with Some s -> [("tagging_status", s)] | None -> []) @
-    (List.map (fun (id, asset_type) -> ("asset_" ^ asset_type, id)) bookmark.assets) @
+    (* Extract key asset IDs *)
+    (List.filter_map (fun (id, asset_type) -> 
+      match asset_type with
+      | "screenshot" | "bannerImage" -> Some (asset_type, id)
+      | _ -> None
+    ) bookmark.assets) @
+    (* Extract only the favicon from content *)
     (List.filter_map (fun (k, v) -> 
-      if List.mem k ["type"; "url"; "title"; "screenshotAssetId"; "favicon"] 
-      then Some ("content_" ^ k, v) else None) bookmark.content)
+      if k = "favicon" && v <> "" && v <> "null" then Some ("favicon", v) else None
+    ) bookmark.content)
   in
   
-  (* Create karakeep_id if base_url is provided *)
-  let karakeep_id = 
+  (* Create karakeep data if base_url is provided *)
+  let karakeep = 
     match base_url with
-    | Some url -> Some { Bushel.Link.remote_url = url; id = bookmark.id }
-    | None -> 
-        (* For backward compatibility, try to extract from metadata *)
-        Some { Bushel.Link.remote_url = "unknown"; id = bookmark.id }
+    | Some url -> 
+        Some { 
+          Bushel.Link.remote_url = url; 
+          id = bookmark.id;
+          tags = bookmark.tags;
+          metadata = metadata;
+        }
+    | None -> None
   in
   
-  (* Extract any tags for additional context *)
+  (* Extract bushel slugs from tags *)
   let bushel_slugs = 
-    (* If there are tags that start with "bushel:", use them as slugs *)
     List.filter_map (fun tag ->
       if String.starts_with ~prefix:"bushel:" tag then
         Some (String.sub tag 7 (String.length tag - 7))
@@ -551,4 +559,10 @@ let to_bushel_link ?base_url bookmark =
     ) bookmark.tags
   in
   
-  { Bushel.Link.url = bookmark.url; date; description; metadata; karakeep_id; bushel_slugs }
+  (* Create bushel data if we have bushel-related information *)
+  let bushel = 
+    if bushel_slugs = [] then None
+    else Some { Bushel.Link.slugs = bushel_slugs; tags = [] }
+  in
+  
+  { Bushel.Link.url = bookmark.url; date; description; karakeep; bushel }

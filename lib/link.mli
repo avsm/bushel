@@ -1,15 +1,21 @@
-type karakeep_id = {
+type karakeep_data = {
   remote_url : string;
   id : string;
+  tags : string list;
+  metadata : (string * string) list;
+}
+
+type bushel_data = {
+  slugs : string list;
+  tags : string list;
 }
 
 type t = {
   url : string;
   date : Ptime.date;
   description : string;
-  metadata : (string * string) list;
-  karakeep_id : karakeep_id option;
-  bushel_slugs : string list;
+  karakeep : karakeep_data option;
+  bushel : bushel_data option;
 }
 
 type ts = t list

@@ -35,7 +35,7 @@ val parse_bookmark_response : Ezjsonm.value -> bookmark_response
     @param limit Number of bookmarks to fetch per page (default: 50)
     @param offset Starting index for pagination (0-based) (default: 0)
     @param cursor Optional pagination cursor for cursor-based pagination (overrides offset when provided)
-    @param include_content Whether to include full content (default: true)
+    @param include_content Whether to include full content (default: false)
     @param filter_tags Optional list of tags to filter by
     @param base_url Base URL of the Karakeep instance
     @return A Lwt promise with the bookmark response *)
@@ -54,6 +54,7 @@ val fetch_bookmarks :
     @param page_size Number of bookmarks to fetch per page (default: 50)
     @param max_pages Maximum number of pages to fetch (None for all pages)
     @param filter_tags Optional list of tags to filter by
+    @param include_content Whether to include full content (default: false)
     @param base_url Base URL of the Karakeep instance
     @return A Lwt promise with all bookmarks combined *)
 val fetch_all_bookmarks : 
@@ -61,6 +62,7 @@ val fetch_all_bookmarks :
   ?page_size:int -> 
   ?max_pages:int -> 
   ?filter_tags:string list ->
+  ?include_content:bool ->
   string -> 
   bookmark list Lwt.t
 
