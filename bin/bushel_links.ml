@@ -200,9 +200,7 @@ let update_from_bushel bushel_dir links_file include_domains exclude_domains =
           in
           
           if include_by_domain && not exclude_by_domain then begin
-            let now = Unix.gettimeofday () in
-            let tm = Unix.gmtime now in
-            let date = (1900 + tm.tm_year, 1 + tm.tm_mon, tm.tm_mday) in
+            let date = Bushel.Entry.date entry in
             
             let link = { 
               Bushel.Link.url; 

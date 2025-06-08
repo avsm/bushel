@@ -110,8 +110,9 @@ let to_yaml t =
   let base_fields = [
     ("url", `String t.url);
     ("date", `String date_str);
-    ("description", `String t.description);
-  ] in
+  ] @ 
+  (if t.description = "" then [] else [("description", `String t.description)])
+  in
   
   (* Add metadata if present *)
   let metadata_fields = 
