@@ -75,8 +75,9 @@ val fetch_bookmark_details :
   string -> 
   bookmark Lwt.t
 
-(** Convert a Karakeep bookmark to Bushel.Link.t compatible structure *)
-val to_bushel_link : bookmark -> Bushel.Link.t
+(** Convert a Karakeep bookmark to Bushel.Link.t compatible structure
+    @param base_url Optional base URL of the Karakeep instance (for karakeep_id) *)
+val to_bushel_link : ?base_url:string -> bookmark -> Bushel.Link.t
 
 (** Fetch an asset from the Karakeep server as a binary string
     @param api_key API key for authentication
