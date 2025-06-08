@@ -1,6 +1,12 @@
 open Cmdliner
 open Lwt.Infix
 
+(* Helper function for logging with proper flushing *)
+let log fmt = Printf.ksprintf (fun s -> Printf.eprintf "%s%!" s) fmt
+let log_verbose verbose fmt = 
+  if verbose then Printf.ksprintf (fun s -> Printf.eprintf "%s%!" s) fmt 
+  else Printf.ksprintf (fun _ -> ()) fmt
+
 (* Initialize a new links.yml file or ensure it exists *)
 let init_links_file links_file =
   if Sys.file_exists links_file then
@@ -237,29 +243,49 @@ let update_from_bushel bushel_dir links_file include_domains exclude_domains =
   Printf.printf "Total links in file: %d\n" (List.length merged_links);
   0
 
-(* Upload links to Karakeep that don't already have a karakeep_id *)
-let upload_to_karakeep base_url api_key_opt links_file tag max_concurrent delay_seconds =
+(* Upload links to Karakeep that don't already have karakeep data *)
+let upload_to_karakeep base_url api_key_opt links_file tag max_concurrent delay_seconds limit verbose =
   match api_key_opt with
   | None ->
-      Printf.eprintf "Error: API key is required.\n";
-      Printf.eprintf "Please provide one with --api-key or create a ~/.karakeep-api file.\n";
+      log "Error: API key is required.\n";
+      log "Please provide one with --api-key or create a ~/.karakeep-api file.\n";
       1
   | Some api_key ->
       (* Load links from file *)
+      log_verbose verbose "Loading links from %s...\n" links_file;
       let links = Bushel.Link.load_links_file links_file in
+      log_verbose verbose "Loaded %d total links\n" (List.length links);
       
       (* Filter links that don't have karakeep data for this remote *)
-      let links_to_upload = List.filter (fun link ->
+      log_verbose verbose "Filtering links that don't have karakeep data for %s...\n" base_url;
+      let filtered_links = List.filter (fun link ->
         match link.Bushel.Link.karakeep with
         | Some { remote_url; _ } when remote_url = base_url -> false
         | _ -> true
       ) links in
+      log_verbose verbose "Found %d links without karakeep data\n" (List.length filtered_links);
+      
+      (* Apply limit if specified *)
+      let links_to_upload = 
+        match limit with
+        | Some n when n > 0 -> 
+            let rec take_n acc count = function
+              | [] -> List.rev acc
+              | _ when count = 0 -> List.rev acc
+              | x :: xs -> take_n (x :: acc) (count - 1) xs
+            in
+            let limited = take_n [] n filtered_links in
+            if List.length filtered_links > n then
+              log "Limited to first %d links (out of %d available)\n" n (List.length filtered_links);
+            limited
+        | _ -> filtered_links
+      in
   
   if links_to_upload = [] then begin
-    Printf.printf "No links to upload to %s (all links already have karakeep_ids)\n" base_url;
+    log "No links to upload to %s (all links already have karakeep data)\n" base_url;
     0
   end else begin
-    Printf.printf "Found %d links to upload to %s\n" (List.length links_to_upload) base_url;
+    log "Found %d links to upload to %s\n" (List.length links_to_upload) base_url;
     
     (* Prepare tags - include provided tag and add bushel slugs as tags *)
     let prepare_tags link =
@@ -291,8 +317,9 @@ let upload_to_karakeep base_url api_key_opt links_file tag max_concurrent delay_
     in
     
     let batches = create_batches links_to_upload [] in
-    Printf.printf "Processing in %d batches of up to %d links each...\n" 
+    log_verbose verbose "Processing in %d batches of up to %d links each...\n" 
       (List.length batches) max_concurrent;
+    log_verbose verbose "Delay between batches: %.1f seconds\n" delay_seconds;
     
     (* Process batches and accumulate updated links *)
     let updated_links = ref [] in
@@ -300,7 +327,10 @@ let upload_to_karakeep base_url api_key_opt links_file tag max_concurrent delay_
     let result = Lwt_main.run (
       Lwt.catch
         (fun () ->
-          Lwt_list.fold_left_s (fun total_count batch ->
+          Lwt_list.fold_left_s (fun (total_count, batch_num) batch ->
+            log_verbose verbose "\nProcessing batch %d/%d (%d links)...\n" 
+              (batch_num + 1) (List.length batches) (List.length batch);
+            
             (* Process links in this batch concurrently *)
             Lwt_list.map_p (fun link ->
               let url = link.Bushel.Link.url in
@@ -311,7 +341,15 @@ let upload_to_karakeep base_url api_key_opt links_file tag max_concurrent delay_
               in
               let tags = prepare_tags link in
               
-              Printf.printf "Uploading: %s\n" url;
+              if verbose then begin
+                log "  Uploading: %s\n" url;
+                if tags <> [] then 
+                  log "    Tags: %s\n" (String.concat ", " tags);
+                if title <> None then 
+                  log "    Title: %s\n" (Option.get title);
+              end else begin
+                log "Uploading: %s\n" url;
+              end;
               
               (* Create the bookmark with tags *)
               Lwt.catch
@@ -337,27 +375,40 @@ let upload_to_karakeep base_url api_key_opt links_file tag max_concurrent delay_
                   } in
                   updated_links := updated_link :: !updated_links;
                   
-                  Printf.printf "  - Added to Karakeep with ID: %s\n" bookmark.id;
+                  if verbose then
+                    log "    ✓ Added to Karakeep with ID: %s\n" bookmark.id
+                  else
+                    log "  - Added to Karakeep with ID: %s\n" bookmark.id;
                   Lwt.return 1 (* Success *)
                 )
                 (fun exn ->
-                  Printf.eprintf "  - Error uploading %s: %s\n" url (Printexc.to_string exn);
+                  if verbose then
+                    log "    ✗ Error uploading %s: %s\n" url (Printexc.to_string exn)
+                  else
+                    log "  - Error uploading %s: %s\n" url (Printexc.to_string exn);
                   Lwt.return 0 (* Failure *)
                 )
             ) batch >>= fun results ->
             
             (* Count successes in this batch *)
             let batch_successes = List.fold_left (+) 0 results in
+            let new_total = total_count + batch_successes in
+            
+            log_verbose verbose "  Batch %d complete: %d/%d successful (Total: %d/%d)\n" 
+              (batch_num + 1) batch_successes (List.length batch) new_total (new_total + (List.length links_to_upload - new_total));
             
             (* Add a delay before processing the next batch *)
-            Lwt_unix.sleep delay_seconds >>= fun () ->
-            
-            (* Return the updated total *)
-            Lwt.return (total_count + batch_successes)
-          ) 0 batches
+            if batch_num + 1 < List.length batches then begin
+              log_verbose verbose "  Waiting %.1f seconds before next batch...\n" delay_seconds;
+              Lwt_unix.sleep delay_seconds >>= fun () ->
+              Lwt.return (new_total, batch_num + 1)
+            end else
+              Lwt.return (new_total, batch_num + 1)
+          ) (0, 0) batches >>= fun (final_count, _) ->
+          Lwt.return final_count
         )
         (fun exn ->
-          Printf.eprintf "Error during upload operation: %s\n" (Printexc.to_string exn);
+          log "Error during upload operation: %s\n" (Printexc.to_string exn);
           Lwt.return 0
         )
     ) in
@@ -378,11 +429,11 @@ let upload_to_karakeep base_url api_key_opt links_file tag max_concurrent delay_
       (* Save the updated links file *)
       Bushel.Link.save_links_file links_file final_links;
       
-      Printf.printf "Updated %s with %d new karakeep_ids\n" 
+      log "Updated %s with %d new karakeep_ids\n" 
         links_file (List.length !updated_links);
     end;
     
-    Printf.printf "Upload complete. %d/%d links uploaded successfully.\n" 
+    log "Upload complete. %d/%d links uploaded successfully.\n" 
       result (List.length links_to_upload);
     
     0
@@ -440,6 +491,14 @@ let delay_arg =
   let doc = "Delay in seconds between batches (default: 1.0)" in
   Arg.(value & opt float 1.0 & info ["delay"] ~doc ~docv:"SECONDS")
 
+let limit_arg =
+  let doc = "Limit number of links to upload (for testing)" in
+  Arg.(value & opt (some int) None & info ["limit"; "l"] ~doc ~docv:"NUM")
+
+let verbose_arg =
+  let doc = "Show detailed progress information during upload" in
+  Arg.(value & flag & info ["verbose"; "v"] ~doc)
+
 (* Command definitions *)
 let init_cmd =
   let doc = "Initialize a new links.yml file" in
@@ -457,9 +516,9 @@ let bushel_cmd =
   Cmd.v info Term.(const update_from_bushel $ base_dir_arg $ links_file_arg $ include_domains_arg $ exclude_domains_arg)
 
 let upload_cmd =
-  let doc = "Upload links without karakeep_id to Karakeep" in
+  let doc = "Upload links without karakeep data to Karakeep" in
   let info = Cmd.info "upload" ~doc in
-  Cmd.v info Term.(const upload_to_karakeep $ base_url_arg $ api_key_arg $ links_file_arg $ tag_arg $ concurrent_arg $ delay_arg)
+  Cmd.v info Term.(const upload_to_karakeep $ base_url_arg $ api_key_arg $ links_file_arg $ tag_arg $ concurrent_arg $ delay_arg $ limit_arg $ verbose_arg)
 
 let default_cmd =
   let doc = "Manage links between Bushel and Karakeep" in
