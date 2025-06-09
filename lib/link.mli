@@ -31,4 +31,4 @@ val t_of_yaml : Yaml.value -> t
 val to_file : string -> t -> (unit, [> `Msg of string]) result
 val load_links_file : string -> ts
 val save_links_file : string -> ts -> unit
-val merge_links : ts -> ts -> ts
+val merge_links : ?prefer_new_date:bool -> ts -> ts -> ts

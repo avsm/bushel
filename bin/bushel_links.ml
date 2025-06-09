@@ -50,7 +50,7 @@ let update_from_karakeep base_url api_key_opt tag links_file download_assets =
               Karakeep.to_bushel_link ~base_url bookmark
             ) bookmarks in
             
-            (* Merge with existing links *)
+            (* Merge with existing links - keep existing dates (karakeep dates may be unreliable) *)
             let merged_links = Bushel.Link.merge_links existing_links new_links in
             
             (* Save the updated links file *)
@@ -232,8 +232,8 @@ let update_from_bushel bushel_dir links_file include_domains exclude_domains =
   (* Load existing links *)
   let existing_links = Bushel.Link.load_links_file links_file in
   
-  (* Merge with existing links *)
-  let merged_links = Bushel.Link.merge_links existing_links !extracted_links in
+  (* Merge with existing links - prefer bushel entry dates *)
+  let merged_links = Bushel.Link.merge_links ~prefer_new_date:true existing_links !extracted_links in
   
   (* Save the updated links file *)
   Bushel.Link.save_links_file links_file merged_links;

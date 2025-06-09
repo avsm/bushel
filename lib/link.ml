@@ -208,14 +208,23 @@ let load_links_file path =
 
 (* Save links to a YAML file *)
 let save_links_file path links =
-  let yaml = `A (List.map to_yaml links) in
-  let yaml_str = Yaml.to_string_exn ~len:1200000 yaml in
-  let oc = open_out path in
-  output_string oc yaml_str;
-  close_out oc
+  try
+    let yaml = `A (List.map to_yaml links) in
+    let yaml_str = Yaml.to_string_exn ~len:4200000 yaml in
+    let oc = open_out path in
+    output_string oc yaml_str;
+    close_out oc
+  with e ->
+    Printf.eprintf "Error saving links file: %s\n%!" (Printexc.to_string e);
+    Printf.eprintf "Attempting to save with smaller length limit...\n%!";
+    let yaml = `A (List.map to_yaml links) in
+    let yaml_str = Yaml.to_string_exn ~len:800000 yaml in
+    let oc = open_out path in
+    output_string oc yaml_str;
+    close_out oc
 
 (* Merge two lists of links, combining metadata from duplicates *)
-let merge_links existing new_links =
+let merge_links ?(prefer_new_date=false) existing new_links =
   let links_by_url = Hashtbl.create (List.length existing) in
   
   (* Add existing links to hashtable *)
@@ -265,10 +274,15 @@ let merge_links existing new_links =
           | None, old_b -> old_b
         in
         
-        (* Combined link *)
+        (* Combined link - prefer new date when requested (for bushel entries) *)
+        let date = 
+          if prefer_new_date then new_link.date
+          else if compare new_link old_link > 0 then new_link.date 
+          else old_link.date
+        in
         let merged_link = {
           url = new_link.url;
-          date = (if compare new_link old_link > 0 then new_link.date else old_link.date);
+          date;
           description = title;
           karakeep;
           bushel
