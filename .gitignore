@@ -1,4 +1,8 @@
 _build
 .*.swp
-
 **/.claude/settings.local.json
+.photos-api
+.karakeep-api
+KARAKEEP.md
+karakeep-src
+.DS_Store

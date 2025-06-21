@@ -20,3 +20,7 @@ val with_bushel_links
   -> Cmarkit.Label.t option
 
 val scan_for_slugs : Entry.t -> string -> string list
+
+
+val is_bushel_slug : string -> bool
+val is_tag_slug : string -> bool

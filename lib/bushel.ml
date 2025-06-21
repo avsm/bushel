@@ -6,6 +6,7 @@ module Paper = Paper
 module Project = Project
 module Video = Video
 module Tags = Tags
+module Link = Link
 module Entry = Entry
 module Util = Util
 module Srcsetter = Srcsetter
@@ -20,14 +21,17 @@ let map_md base subdir fn =
 ;;
 
 let map_category base c fn = map_md base c (fun dir e -> fn @@ Filename.concat dir e)
-let load_contacts base = map_category base "contacts" Contact.of_md
-let load_projects base = map_category base "projects" Project.of_md
-let load_notes base = map_category base "notes" Note.of_md
-let load_news base = map_category base "news" News.of_md
-let load_ideas base = map_category base "ideas" Idea.of_md
-let load_videos base = map_category base "videos" Video.of_md
+let dbg l = Printf.eprintf "loading %s\n%!" l
+
+let load_contacts base = dbg "contacts"; map_category base "contacts" Contact.of_md
+let load_projects base = dbg "projects"; map_category base "projects" Project.of_md
+let load_notes base = dbg "notes"; map_category base "notes" Note.of_md
+let load_news base = dbg "news"; map_category base "news" News.of_md
+let load_ideas base = dbg "ideas"; map_category base "ideas" Idea.of_md
+let load_videos base = dbg "videos"; map_category base "videos" Video.of_md
 
 let load_images base =
+  Printf.eprintf "load images %s/data/images\n%!" base;
   try
     Srcsetter.list_of_json (Util.read_file (base ^ "/images/index.json")) |> Result.get_ok
   with

@@ -1,4 +1,4 @@
-(** Bushel mappers for our Markdown extensions *)
+(** Bushel mappers for our Markdown extensions and utilities *)
 
 let authorlink = Cmarkit.Meta.key ()
 
@@ -238,3 +238,4 @@ let scan_for_slugs entries md =
   in
   Hashtbl.fold (fun k () a -> k :: a) slugs []
 ;;
+

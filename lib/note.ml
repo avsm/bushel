@@ -44,6 +44,7 @@ let lookup slug notes = List.find (fun n -> n.slug = slug) notes
 let read_file file = In_channel.(with_open_bin file input_all)
 let words { body; _ } = Util.count_words body
 
+
 let of_md fname =
   (* TODO fix Jekyll_post to basename the fname all the time *)
   match Jekyll_post.of_string ~fname:(Filename.basename fname) (read_file fname) with
@@ -98,4 +99,3 @@ let of_md fname =
       | _ -> None
     in
     { title; draft; date; slug; synopsis; titleimage; index_page; body; via; updated; tags; sidebar }
-;;

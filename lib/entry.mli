@@ -40,6 +40,8 @@ val to_type_string : entry -> string
 val slug : entry -> string
 val title : entry -> string
 val body : entry -> string
+val extract_external_links : string -> string list
+val outgoing_links : entry -> string list
 
 (* FIXME move to view *)
 val site_url : entry -> string
