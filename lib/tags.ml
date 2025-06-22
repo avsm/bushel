@@ -130,9 +130,13 @@ let mentions tags =
 ;;
 
 let mention_entries entries tags =
+  let lk t =
+   try Some (lookup_exn entries t)
+   with Not_found -> Printf.eprintf "mention_entries not found: %s\n%!" t; None
+  in
   List.filter_map
     (function
-      | `Slug t -> Some (lookup_exn entries t)
+      | `Slug t -> lk t
       | _ -> None)
     tags
 ;;
