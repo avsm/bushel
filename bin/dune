@@ -1,36 +1,12 @@
-(executable
- (name bushel_obsidian)
- (public_name bushel-obsidian)
- (package bushel)
- (libraries bushel cmdliner cmarkit))
+(library
+ (name bushel_common)
+ (modules bushel_common)
+ (libraries cmdliner fmt fmt.cli fmt.tty logs logs.cli logs.fmt))
 
 (executable
- (name bushel_paper)
- (public_name bushel_paper)
+ (name bushel_main)
+ (public_name bushel)
  (package bushel)
- (libraries zotero-translation lwt.unix yaml bushel cmdliner))
-
-(executable
- (name bushel_video)
- (public_name bushel_video)
- (package bushel)
- (libraries cohttp-lwt-unix lwt.unix yaml bushel cmdliner peertube fmt fmt.cli fmt.tty logs logs.cli logs.fmt))
-
-(executable
- (name bushel_thumbs)
- (public_name bushel-thumbs)
- (package bushel)
- (libraries unix lwt.unix bushel cmdliner))
-
-(executable
- (name bushel_faces)
- (public_name bushel-faces)
- (package bushel)
+ (modules bushel_main bushel_obsidian bushel_paper bushel_video bushel_thumbs bushel_faces bushel_links)
  (flags (:standard -w -69))
- (libraries cohttp-lwt-unix lwt.unix bushel cmdliner ezjsonm))
-
-(executable
- (name bushel_links)
- (public_name bushel-links)
- (package bushel)
- (libraries lwt.unix yaml bushel cmdliner karakeep))
+ (libraries bushel bushel_common cmdliner cohttp-lwt-unix lwt.unix yaml ezjsonm zotero-translation peertube fmt fmt.cli fmt.tty logs logs.cli logs.fmt cmarkit karakeep uri unix))

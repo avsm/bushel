@@ -19,10 +19,14 @@ end
 let process_paper base_dir output_dir paper =
   let slug = Bushel.Paper.slug paper in
   let pdf_path = sprintf "%s/static/papers/%s.pdf" base_dir slug in
-  if Sys.file_exists pdf_path then (
+  let thumbnail_path = sprintf "%s/%s.png" output_dir slug in
+  
+  (* Skip if thumbnail already exists *)
+  if Sys.file_exists thumbnail_path then (
+    printf "Thumbnail already exists for %s, skipping\n%!" slug
+  ) else if Sys.file_exists pdf_path then (
     try
       let size = sprintf "2048x" in
-      let thumbnail_path = sprintf "%s/%s.png" output_dir slug in
       printf "Generating high-res thumbnail for %s (size: %s)\n%!" slug size;
       match Imagemagick.generate_thumbnail ~pdf_path ~size ~output_path:thumbnail_path with
       | 0 -> printf "Successfully generated thumbnail for %s\n%!" slug
@@ -51,18 +55,16 @@ let process_papers base_dir output_dir =
   printf "Found %d papers\n%!" (List.length papers);
   List.iter (process_paper base_dir output_dir) papers
 
-let base_arg =
-  let doc = "Base directory containing Bushel data." in
-  Arg.(required & pos 0 (some string) None & info [] ~docv:"BASE" ~doc)
+(* Command line arguments are now imported from Bushel_common *)
 
-let output_arg =
-  let doc = "Output directory for thumbnails." in
-  Arg.(required & pos 1 (some string) None & info [] ~docv:"OUTPUT" ~doc)
+(* Export the term for use in main bushel.ml *)
+let term =
+  Term.(const (fun base_dir output_dir -> process_papers base_dir output_dir; 0) $ 
+    Bushel_common.base_dir $ Bushel_common.output_dir ~default:".")
 
 let cmd =
   let doc = "Generate thumbnails for paper PDFs" in
-  let info = Cmd.info "bushel-thumbs" ~doc in
-  Cmd.v info Term.(const process_papers $ base_arg $ output_arg)
+  let info = Cmd.info "thumbs" ~doc in
+  Cmd.v info term
 
-let () =
-  exit @@ Cmd.eval cmd
+(* Main entry point removed - accessed through bushel_main.ml *)

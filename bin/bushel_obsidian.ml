@@ -72,4 +72,17 @@ let obsidian_output base output_dir =
     (Entry.contacts e)
 ;;
 
-let () = obsidian_output "." "obsidian"
+(* Export the term for use in main bushel.ml *)
+let term =
+  Cmdliner.Term.(
+    const (fun base_dir output_dir -> obsidian_output base_dir output_dir; 0) $ 
+    Bushel_common.base_dir $ 
+    Bushel_common.output_dir ~default:"obsidian"
+  )
+
+let cmd =
+  let doc = "Generate Obsidian-compatible markdown files" in
+  let info = Cmdliner.Cmd.info "obsidian" ~doc in
+  Cmdliner.Cmd.v info term
+
+(* Main entry point removed - accessed through bushel_main.ml *)

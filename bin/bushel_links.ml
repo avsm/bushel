@@ -520,9 +520,11 @@ let upload_cmd =
   let info = Cmd.info "upload" ~doc in
   Cmd.v info Term.(const upload_to_karakeep $ base_url_arg $ api_key_arg $ links_file_arg $ tag_arg $ concurrent_arg $ delay_arg $ limit_arg $ verbose_arg)
 
-let default_cmd =
+(* Export the term and cmd for use in main bushel.ml *)
+let cmd =
   let doc = "Manage links between Bushel and Karakeep" in
-  let info = Cmd.info "bushel_links" ~doc in
+  let info = Cmd.info "links" ~doc in
   Cmd.group info [init_cmd; karakeep_cmd; bushel_cmd; upload_cmd]
 
-let () = exit (Cmd.eval' default_cmd)
+(* For standalone execution *)
+(* Main entry point removed - accessed through bushel_main.ml *)

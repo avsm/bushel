@@ -148,30 +148,10 @@ let process_contacts base_dir output_dir specific_handle api_key base_url =
   if ok_count > 0 || skipped_count > 0 then 0 else 1
 
 (* Command line interface *)
-let base_dir_arg =
-  let doc = "Base directory containing Bushel data" in
-  Arg.(required & pos 0 (some string) None & info [] ~docv:"BASE_DIR" ~doc)
 
-let output_dir_arg =
-  let doc = "Output directory for thumbnails" in
-  Arg.(required & pos 1 (some string) None & info [] ~docv:"OUTPUT_DIR" ~doc)
-
-let handle_arg =
-  let doc = "Specific contact handle to process. If omitted, process all contacts" in
-  Arg.(value & opt (some string) None & info ["h"; "handle"] ~doc)
-
-let api_key_file_arg =
-  let doc = "File containing the Immich API key (defaults to .photos-api)" in
-  Arg.(value & opt string ".photos-api" & info ["k"; "key-file"] ~doc)
-
-let base_url_arg =
-  let doc = "Base URL of the Immich instance" in
-  Arg.(value & opt string "https://photos.recoil.org" & info ["u"; "url"] ~doc)
-
-let cmd =
-  let doc = "Retrieve face thumbnails for Bushel contacts from Immich" in
-  let info = Cmd.info "bushel-faces" ~doc in
-  Cmd.v info Term.(
+(* Export the term for use in main bushel.ml *)
+let term =
+  Term.(
     const (fun base_dir output_dir handle api_key_file base_url ->
       try
         let api_key = read_api_key api_key_file in
@@ -179,6 +159,12 @@ let cmd =
       with e -> 
         eprintf "Error: %s\n%!" (Printexc.to_string e);
         1
-    ) $ base_dir_arg $ output_dir_arg $ handle_arg $ api_key_file_arg $ base_url_arg)
+    ) $ Bushel_common.base_dir $ Bushel_common.output_dir ~default:"." $ Bushel_common.handle_opt $ 
+      Bushel_common.api_key_file ~default:".photos-api" $ 
+      Bushel_common.url_term ~default:"https://photos.recoil.org" ~doc:"Base URL of the Immich instance")
 
-let () = exit (Cmd.eval' cmd)
+let cmd =
+  let info = Cmd.info "faces" ~doc:"Retrieve face thumbnails for Bushel contacts from Immich" in
+  Cmd.v info term
+
+(* Main entry point removed - accessed through bushel_main.ml *)

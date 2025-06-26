@@ -208,3 +208,13 @@ let best_url p =
   then Some (Printf.sprintf "/papers/%s.pdf" (slug p))
   else url p
 ;;
+
+(* TODO:claude *)
+let to_yaml ?abstract ~ver json_data =
+  (* Add version to the JSON data *)
+  let keys = J.get_dict json_data in
+  let json_with_version = `O (("version", `String ver) :: keys) in
+  let frontmatter = Yaml.to_string_exn json_with_version in
+  match abstract with
+  | Some abs -> Printf.sprintf "---\n%s---\n\n%s\n" frontmatter abs
+  | None -> Printf.sprintf "---\n%s---\n" frontmatter

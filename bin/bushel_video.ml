@@ -89,34 +89,20 @@ let process_videos output_dir overwrite base_url channel =
           Lwt.return_unit
   ) vids
 
-let output_dir =
-  let doc = "Output directory" in
-  Arg.(required & pos 0 (some string) None & info [] ~docv:"OUTPUT_DIR" ~doc)
+(* Command line arguments are now imported from Bushel_common *)
 
-let overwrite =
-  let doc = "Overwrite existing files" in
-  Arg.(value & flag & info ["overwrite"] ~doc)
-
-let base_url =
-  let doc = "PeerTube base URL" in
-  let default = "https://crank.recoil.org" in
-  Arg.(value & opt string default & info ["url"] ~docv:"URL" ~doc)
-
-let channel =
-  let doc = "PeerTube channel name" in
-  let default = "anil" in
-  Arg.(value & opt string default & info ["channel"] ~docv:"CHANNEL" ~doc)
-
-let setup_log =
-  Term.(const setup_log $ Fmt_cli.style_renderer () $ Logs_cli.level ())
+(* Export the term for use in main bushel.ml *)
+let term =
+  Term.(const (fun output_dir overwrite base_url channel () -> 
+    Lwt_main.run (process_videos output_dir overwrite base_url channel); 0) 
+    $ Bushel_common.output_dir ~default:"." $ Bushel_common.overwrite $ 
+    Bushel_common.url_term ~default:"https://crank.recoil.org" ~doc:"PeerTube base URL" $ 
+    Bushel_common.channel ~default:"anil" $ 
+    Bushel_common.setup_term)
 
 let cmd =
-  let doc = "Fetch and process videos" in
-  let info = Cmd.info "bushel_video" ~doc in
-  Cmd.v info 
-    Term.(const (fun output_dir overwrite base_url channel () -> 
-      Lwt_main.run (process_videos output_dir overwrite base_url channel)) 
-      $ output_dir $ overwrite $ base_url $ channel $ setup_log)
+  let doc = "Fetch and process videos from PeerTube" in
+  let info = Cmd.info "video" ~doc in
+  Cmd.v info term
 
-let () =
-  exit (Cmd.eval cmd)
+(* Main entry point removed - accessed through bushel_main.ml *)

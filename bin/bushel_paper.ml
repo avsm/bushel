@@ -4,8 +4,6 @@ open Printf
 module J = Ezjsonm
 open Cmdliner
 
-let post_to_jekyll j =
-  sprintf "---\n%s---\n" (Yaml.to_string_exn j)
 
 let _authors b j =
   let keys = J.get_dict j in
@@ -19,32 +17,58 @@ let _authors b j =
     in
   J.update j ["author"] (Some (`A a))
 
-let of_doi zt _b ~slug doi =
+let of_doi zt ~base_dir ~slug ~version doi =
   ZT.json_of_doi zt ~slug doi  >>= fun j ->
-  (* let j = authors b (j:>Ezjsonm.value) in  *)
-  print_endline (post_to_jekyll (j :> Yaml.value));
+  let papers_dir = Printf.sprintf "%s/papers/%s" base_dir slug in
+  (* Ensure papers directory exists *)
+  (try Unix.mkdir papers_dir 0o755 with Unix.Unix_error (Unix.EEXIST, _, _) -> ());
+  
+  (* Extract abstract from JSON data *)
+  let abstract = try
+    let keys = Ezjsonm.get_dict (j :> Ezjsonm.value) in
+    match List.assoc_opt "abstract" keys with
+    | Some abstract_json -> Some (Ezjsonm.get_string abstract_json)
+    | None -> None
+  with _ -> None in
+  
+  (* Remove abstract from frontmatter - it goes in body *)
+  let keys = Ezjsonm.get_dict (j :> Ezjsonm.value) in
+  let filtered_keys = List.filter (fun (k, _) -> k <> "abstract") keys in
+  let json_without_abstract = `O filtered_keys in
+  
+  (* Use library function to generate YAML with abstract in body *)
+  let content = Bushel.Paper.to_yaml ?abstract ~ver:version json_without_abstract in
+  
+  let filename = Printf.sprintf "%s.md" version in
+  let filepath = Filename.concat papers_dir filename in
+  let oc = open_out filepath in
+  output_string oc content;
+  close_out oc;
+  Printf.printf "Created paper file: %s\n" filepath;
   Lwt.return ()
-
-let base_arg =
-  let doc = "Base directory." in
-  Arg.(required & pos 0 (some string) None & info [] ~docv:"BASE" ~doc)
 
 let slug_arg =
   let doc = "Slug for the entry." in
-  Arg.(required & pos 1 (some string) None & info [] ~docv:"SLUG" ~doc)
+  Arg.(required & pos 0 (some string) None & info [] ~docv:"SLUG" ~doc)
+
+let version_arg =
+  let doc = "Version of the entry." in
+  Arg.(required & pos 1 (some string) None & info [] ~docv:"VERSION" ~doc)
 
 let doi_arg =
   let doc = "DOI of the entry." in
   Arg.(required & pos 2 (some string) None & info [] ~docv:"DOI" ~doc)
 
-let cmd =
-  let doc = "Bushel Paper CLI" in
-  let term = Term.(const (fun base slug doi ->
-    let e = Bushel.load base in
+(* Export the term for use in main bushel.ml *)
+let term =
+  Term.(const (fun base slug version doi ->
     let zt = ZT.v "http://svr-avsm2-eeg-ce:1969" in
-    Lwt_main.run @@ of_doi zt e ~slug doi
-  ) $ base_arg $ slug_arg $ doi_arg) in
-  Cmd.v (Cmd.info "bushel_paper" ~doc) term
+    Lwt_main.run @@ of_doi zt ~base_dir:base ~slug ~version doi; 0
+  ) $ Bushel_common.base_dir $ slug_arg $ version_arg $ doi_arg)
 
-let () =
-  exit (Cmd.eval cmd)
+let cmd =
+  let doc = "Generate paper entry from DOI" in
+  let info = Cmd.info "paper" ~doc in
+  Cmd.v info term
+
+(* Main entry point removed - accessed through bushel_main.ml *)
