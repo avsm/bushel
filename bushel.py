@@ -101,15 +101,8 @@ class Note(BaseEntry):
     index_page: bool = False
     synopsis: Optional[str] = None
     titleimage: Optional[str] = None
-    via: Optional[dict] = None
+    via: Optional[Union[dict, str]] = None
     sidebar: Optional[str] = None
-    
-    @model_validator(mode='after')
-    def set_defaults(self):
-        """Set default values for required fields"""
-        if self.date is None:
-            self.date = date.today()
-        return self
 
 # Paper entry model
 class Paper(BaseEntry):
@@ -331,12 +324,22 @@ class Video(BaseEntry):
     """Video entry type"""
     type: EntryType = EntryType.VIDEO
     uuid: Optional[str] = None
-    url: str = ""
+    url: Optional[str] = None
     published_date: Optional[date] = None
     description: Optional[str] = None
     talk: bool = False
     paper: Optional[str] = None
     project: Optional[str] = None
+    
+    @field_validator('published_date', mode='before')
+    @classmethod
+    def validate_published_date(cls, v):
+        """Convert datetime to date if needed"""
+        if v is None:
+            return None
+        if hasattr(v, 'date'):  # datetime object
+            return v.date()
+        return v
     
     @model_validator(mode='after')
     def set_defaults(self):
@@ -445,12 +448,24 @@ def load_note(file_path: Path) -> Note:
     
     # Extract date from filename if present
     filename_date = extract_date_from_filename(file_path)
-    if filename_date and 'date' not in front_matter:
-        front_matter['date'] = filename_date
+    
+    # Extract slug from filename for date-based notes
+    if filename_date and 'slug' not in front_matter:
+        # Remove date prefix from filename to get slug
+        pattern = r'^\d{4}-\d{2}-\d{2}-(.*)'
+        match = re.match(pattern, file_path.stem)
+        if match:
+            front_matter['slug'] = match.group(1)
     
     # Build note object
     note_data = {**front_matter, 'body': body}
-    return Note(**note_data)
+    note = Note(**note_data)
+    
+    # Set date after creation if needed (to avoid validation issues)
+    if filename_date and not note.date:
+        note.date = filename_date
+    
+    return note
 
 def load_paper(file_path: Path) -> Paper:
     """Load a Paper entry from a markdown file."""
@@ -576,8 +591,13 @@ def load_entries_from_dir(
                     slug = front_matter.get("slug", file_path.stem)
                     tags = front_matter.get("tags", [])
                     
+                    # For videos, also preserve the URL if available
+                    minimal_data = {"title": title, "slug": slug, "tags": tags, "body": body}
+                    if entry_type == "video" and "url" in front_matter:
+                        minimal_data["url"] = front_matter["url"]
+                    
                     # Create minimal entry
-                    entry = entry_class(title=title, slug=slug, tags=tags, body=body)
+                    entry = entry_class(**minimal_data)
                     entries.append(entry)
                     continue  # Skip error logging if we recovered
             except Exception as recovery_err:
@@ -976,6 +996,191 @@ def summary():
     table.add_row("Total", str(stats["total"]), style="bold")
     
     app_state.console.print(table)
+
+@app.command()
+def lint(
+    fix: bool = typer.Option(
+        False,
+        "--fix",
+        help="Attempt to fix issues automatically where possible"
+    ),
+    verbose: bool = typer.Option(
+        False,
+        "--verbose",
+        "-v",
+        help="Show detailed information about all checks"
+    )
+):
+    """Run integrity checks on the database."""
+    db = BushelDatabase(main.db_path)
+    
+    app_state.console.print("[bold]Running integrity checks...[/bold]\n")
+    
+    # Track issues found
+    issues = []
+    warnings = []
+    
+    # Check 1: Validate contact references in ideas
+    app_state.console.print("[blue]Checking contact references in ideas...[/blue]")
+    contact_handles = {contact.handle for contact in db.contacts}
+    
+    for idea in db.ideas:
+        # Check supervisors
+        for supervisor in idea.supervisors:
+            if supervisor not in contact_handles:
+                issues.append(f"Idea '{idea.slug}': supervisor '{supervisor}' not found in contacts")
+        
+        # Check students
+        for student in idea.students:
+            if student not in contact_handles:
+                issues.append(f"Idea '{idea.slug}': student '{student}' not found in contacts")
+    
+    # Check 2: Validate project references
+    app_state.console.print("[blue]Checking project references...[/blue]")
+    project_slugs = {project.slug for project in db.projects}
+    
+    # Check ideas that reference projects
+    for idea in db.ideas:
+        if idea.project and idea.project not in project_slugs:
+            warnings.append(f"Idea '{idea.slug}': project '{idea.project}' not found")
+    
+    # Check papers that reference projects
+    for paper in db.papers:
+        if paper.latest:  # Only check latest versions
+            for project in paper.projects:
+                if project not in project_slugs:
+                    warnings.append(f"Paper '{paper.slug}': project '{project}' not found")
+    
+    # Check videos that reference projects
+    for video in db.videos:
+        if video.project and video.project not in project_slugs:
+            warnings.append(f"Video '{video.slug}': project '{video.project}' not found")
+    
+    # Check 3: Validate tag references
+    app_state.console.print("[blue]Checking tag references...[/blue]")
+    
+    for entry in db.all_entries():
+        for tag_str in entry.tags:
+            tag = Tag(tag_str)
+            
+            # Check slug references
+            if tag.type == "slug" and tag.value not in db.slug_index:
+                warnings.append(f"{entry.type.value.title()} '{entry.slug}': references non-existent slug ':{tag.value}'")
+            
+            # Check contact references
+            if tag.type == "contact" and tag.value not in contact_handles:
+                warnings.append(f"{entry.type.value.title()} '{entry.slug}': references non-existent contact '@{tag.value}'")
+    
+    # Check 4: Check for duplicate slugs
+    app_state.console.print("[blue]Checking for duplicate slugs...[/blue]")
+    slug_occurrences = {}
+    
+    for entry in db.all_entries():
+        if entry.slug:
+            if entry.slug not in slug_occurrences:
+                slug_occurrences[entry.slug] = []
+            slug_occurrences[entry.slug].append(f"{entry.type.value}:{entry.title}")
+    
+    for slug, occurrences in slug_occurrences.items():
+        if len(occurrences) > 1:
+            issues.append(f"Duplicate slug '{slug}' found in: {', '.join(occurrences)}")
+    
+    # Check 5: Validate required fields
+    app_state.console.print("[blue]Checking required fields...[/blue]")
+    
+    # Check papers
+    for paper in db.papers:
+        if paper.latest:
+            if not paper.author or paper.author == ["Unknown"]:
+                warnings.append(f"Paper '{paper.slug}': missing author information")
+            if not paper.year:
+                issues.append(f"Paper '{paper.slug}': missing year")
+    
+    # Check contacts
+    for contact in db.contacts:
+        if not contact.handle:
+            issues.append(f"Contact '{contact.slug}': missing handle")
+        if not contact.names and not contact.name:
+            warnings.append(f"Contact '{contact.slug}': missing name information")
+    
+    # Check 6: Validate markdown body references
+    app_state.console.print("[blue]Checking markdown body references...[/blue]")
+    
+    # Pattern to find markdown links like [@handle] or [:slug]
+    ref_pattern = re.compile(r'\[(@|:)([^\]]+)\]')
+    
+    for entry in db.all_entries():
+        if entry.body:
+            matches = ref_pattern.findall(entry.body)
+            for prefix, reference in matches:
+                if prefix == '@' and reference not in contact_handles:
+                    warnings.append(f"{entry.type.value.title()} '{entry.slug}': body references non-existent contact '@{reference}'")
+                elif prefix == ':' and reference not in db.slug_index:
+                    warnings.append(f"{entry.type.value.title()} '{entry.slug}': body references non-existent slug ':{reference}'")
+    
+    # Check 7: Paper-specific checks
+    app_state.console.print("[blue]Checking paper metadata...[/blue]")
+    
+    for paper in db.papers:
+        if paper.latest:
+            # Check for valid URLs
+            if paper.url and not (paper.url.startswith('http://') or paper.url.startswith('https://')):
+                warnings.append(f"Paper '{paper.slug}': invalid URL format")
+            
+            # Check for valid DOI format
+            if paper.doi and not paper.doi.startswith('10.'):
+                warnings.append(f"Paper '{paper.slug}': DOI should start with '10.'")
+    
+    # Check 8: Video-specific checks
+    app_state.console.print("[blue]Checking video metadata...[/blue]")
+    
+    for video in db.videos:
+        if not video.url or video.url.strip() == "":
+            issues.append(f"Video '{video.slug}': missing URL")
+        elif not (video.url.startswith('http://') or video.url.startswith('https://')):
+            issues.append(f"Video '{video.slug}': invalid URL format")
+        
+        # Check paper references
+        if video.paper and video.paper not in {p.slug for p in db.papers if p.latest}:
+            warnings.append(f"Video '{video.slug}': references non-existent paper '{video.paper}'")
+    
+    # Summary
+    app_state.console.print("\n[bold]Integrity Check Summary:[/bold]")
+    
+    if not issues and not warnings:
+        app_state.console.print("[green]✓ All checks passed![/green]")
+    else:
+        if issues:
+            app_state.console.print(f"\n[red]Found {len(issues)} error(s):[/red]")
+            for issue in issues[:10]:  # Show first 10 issues
+                app_state.console.print(f"  • {issue}")
+            if len(issues) > 10:
+                app_state.console.print(f"  ... and {len(issues) - 10} more")
+        
+        if warnings:
+            app_state.console.print(f"\n[yellow]Found {len(warnings)} warning(s):[/yellow]")
+            for warning in warnings[:10]:  # Show first 10 warnings
+                app_state.console.print(f"  • {warning}")
+            if len(warnings) > 10:
+                app_state.console.print(f"  ... and {len(warnings) - 10} more")
+    
+    # Show all issues in verbose mode
+    if verbose and (len(issues) > 10 or len(warnings) > 10):
+        if len(issues) > 10:
+            app_state.console.print(f"\n[red]All errors:[/red]")
+            for issue in issues:
+                app_state.console.print(f"  • {issue}")
+        
+        if len(warnings) > 10:
+            app_state.console.print(f"\n[yellow]All warnings:[/yellow]")
+            for warning in warnings:
+                app_state.console.print(f"  • {warning}")
+    
+    # Exit with appropriate code
+    if issues:
+        raise typer.Exit(code=1)
+    elif warnings:
+        raise typer.Exit(code=0)
 
 if __name__ == "__main__":
     app()
