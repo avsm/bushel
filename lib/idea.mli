@@ -10,6 +10,7 @@ type status =
   | Discussion
   | Ongoing
   | Completed
+  | Expired
 
 val level_of_yaml : Ezjsonm.value -> (level, [> `Msg of string ]) result
 val level_to_string : level -> string

@@ -54,6 +54,7 @@ class IdeaStatus(str, Enum):
     DISCUSSION = "Discussion"
     ONGOING = "Ongoing"
     COMPLETED = "Completed"
+    EXPIRED = "Expired"
 
 class ProjectStatus(str, Enum):
     ACTIVE = "active"
@@ -241,6 +242,8 @@ class Idea(BaseEntry):
                 return IdeaStatus.ONGOING
             elif v_lower == "completed":
                 return IdeaStatus.COMPLETED
+            elif v_lower == "expired":
+                return IdeaStatus.EXPIRED
         return v
 
 # Project entry model

@@ -37,12 +37,14 @@ type status =
   | Discussion
   | Ongoing
   | Completed
+  | Expired
 
 let status_of_yaml = function
   | `String ("Available" | "available") -> Ok Available
   | `String ("Discussion" | "discussion") -> Ok Discussion
   | `String ("Ongoing" | "ongoing") -> Ok Ongoing
   | `String ("Completed" | "completed") -> Ok Completed
+  | `String ("Expired" | "expired") -> Ok Expired
   | _ -> Error (`Msg "status_of_yaml")
 ;;
 
@@ -51,6 +53,7 @@ let status_to_string = function
   | Discussion -> "Discussion"
   | Ongoing -> "Ongoing"
   | Completed -> "Completed"
+  | Expired -> "Expired"
 ;;
 
 let status_to_tag = function
@@ -58,6 +61,7 @@ let status_to_tag = function
   | Discussion -> "idea-discuss"
   | Ongoing -> "idea-ongoing"
   | Completed -> "idea-done"
+  | Expired -> "idea-expired"
 ;;
 
 let status_to_yaml s = `String (status_to_string s)
