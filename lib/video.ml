@@ -108,3 +108,26 @@ let of_md fname =
     let { Jekyll_post.body; _ } = jp in
     t_of_yaml ~description:body fields
 ;;
+
+(* TODO:claude *)
+let typesense_schema =
+  let open Ezjsonm in
+  dict [
+    ("name", string "videos");
+    ("fields", list (fun d -> dict d) [
+      [("name", string "id"); ("type", string "string")];
+      [("name", string "title"); ("type", string "string")];
+      [("name", string "description"); ("type", string "string")];
+      [("name", string "date"); ("type", string "string")];
+      [("name", string "tags"); ("type", string "string[]"); ("facet", bool true)];
+      [("name", string "video_url"); ("type", string "string")];
+      [("name", string "embed_url"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "duration"); ("type", string "int32"); ("optional", bool true)];
+      [("name", string "channel"); ("type", string "string"); ("facet", bool true)];
+      [("name", string "platform"); ("type", string "string"); ("facet", bool true)];
+      [("name", string "views"); ("type", string "int32"); ("optional", bool true)];
+      [("name", string "related_papers"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "related_talks"); ("type", string "string[]"); ("optional", bool true)];
+    ]);
+    ("default_sorting_field", string "date");
+  ]

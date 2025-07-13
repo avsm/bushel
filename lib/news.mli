@@ -19,3 +19,4 @@ val site_url : t -> string
 val datetime : t -> Ptime.t
 val compare : t -> t -> int
 val of_md : string -> t
+val typesense_schema : Ezjsonm.value

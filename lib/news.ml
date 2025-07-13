@@ -45,3 +45,25 @@ let of_md fname =
 
 let datetime v = Option.get @@ Ptime.of_date @@ v.date
 let compare a b = Ptime.compare (datetime a) (datetime b)
+
+(* TODO:claude *)
+let typesense_schema =
+  let open Ezjsonm in
+  dict [
+    ("name", string "news");
+    ("fields", list (fun d -> dict d) [
+      [("name", string "id"); ("type", string "string")];
+      [("name", string "title"); ("type", string "string")];
+      [("name", string "content"); ("type", string "string")];
+      [("name", string "date"); ("type", string "string")];
+      [("name", string "tags"); ("type", string "string[]"); ("facet", bool true)];
+      [("name", string "source"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
+      [("name", string "url"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "author"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "category"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
+      [("name", string "image_url"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "related_papers"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "related_projects"); ("type", string "string[]"); ("optional", bool true)];
+    ]);
+    ("default_sorting_field", string "date");
+  ]

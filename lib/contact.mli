@@ -17,3 +17,4 @@ val lookup_by_name : ts -> string -> t
 val json_t : t Jsont.t
 val compare : t -> t -> int
 val of_md : string -> t
+val typesense_schema : Ezjsonm.value

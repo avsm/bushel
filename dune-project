@@ -23,6 +23,7 @@
   jekyll-format
   yaml
   lwt
+  cohttp-lwt-unix
   peertube
   karakeep
   cmdliner))

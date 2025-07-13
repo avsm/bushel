@@ -13,6 +13,7 @@ module Entry = Entry
 module Util = Util
 module Md = Md
 module Srcsetter = Srcsetter
+module Typesense = Typesense
 
 val load_contacts : string -> Contact.ts
 val load_projects : string -> Project.ts

@@ -11,6 +11,7 @@ module Entry = Entry
 module Util = Util
 module Srcsetter = Srcsetter
 module Md = Md
+module Typesense = Typesense
 
 let map_md base subdir fn =
   let dir = base ^ "/data/" ^ subdir in
@@ -65,3 +66,6 @@ let load base =
   let videos = load_videos base in
   Entry.v ~images ~papers ~notes ~projects ~ideas ~videos ~news ~contacts
 ;;
+
+(* TODO:claude *)
+

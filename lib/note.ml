@@ -99,3 +99,24 @@ let of_md fname =
       | _ -> None
     in
     { title; draft; date; slug; synopsis; titleimage; index_page; body; via; updated; tags; sidebar }
+
+(* TODO:claude *)
+let typesense_schema =
+  let open Ezjsonm in
+  dict [
+    ("name", string "notes");
+    ("fields", list (fun d -> dict d) [
+      [("name", string "id"); ("type", string "string")];
+      [("name", string "title"); ("type", string "string")];
+      [("name", string "content"); ("type", string "string")];
+      [("name", string "date"); ("type", string "string")];
+      [("name", string "tags"); ("type", string "string[]"); ("facet", bool true)];
+      [("name", string "type"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
+      [("name", string "status"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
+      [("name", string "related_papers"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "related_projects"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "related_contacts"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "attachments"); ("type", string "string[]"); ("optional", bool true)];
+    ]);
+    ("default_sorting_field", string "date");
+  ]

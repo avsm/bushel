@@ -162,3 +162,25 @@ let of_md fname =
 ;;
 
 let lookup ideas slug = List.find_opt (fun i -> i.slug = slug) ideas
+
+(* TODO:claude *)
+let typesense_schema =
+  let open Ezjsonm in
+  dict [
+    ("name", string "ideas");
+    ("fields", list (fun d -> dict d) [
+      [("name", string "id"); ("type", string "string")];
+      [("name", string "title"); ("type", string "string")];
+      [("name", string "description"); ("type", string "string")];
+      [("name", string "date"); ("type", string "string")];
+      [("name", string "tags"); ("type", string "string[]"); ("facet", bool true)];
+      [("name", string "level"); ("type", string "string"); ("facet", bool true)];
+      [("name", string "status"); ("type", string "string"); ("facet", bool true)];
+      [("name", string "project"); ("type", string "string"); ("facet", bool true)];
+      [("name", string "supervisors"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "students"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "reading"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "url"); ("type", string "string"); ("optional", bool true)];
+    ]);
+    ("default_sorting_field", string "date");
+  ]

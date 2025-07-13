@@ -9,4 +9,6 @@
   ezjsonm
   ptime
   yaml.unix
-  jekyll-format))
+  jekyll-format
+  lwt
+  cohttp-lwt-unix))

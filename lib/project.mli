@@ -17,3 +17,4 @@ val lookup : t list -> string -> t option
 val tags : t -> string list
 val compare : t -> t -> int
 val of_md : string -> t
+val typesense_schema : Ezjsonm.value

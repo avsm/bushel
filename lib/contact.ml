@@ -96,3 +96,25 @@ let lookup_by_name ts a =
   | [] -> raise (Failure ("contact.ml: author not found: " ^ a))
   | _ -> raise (Failure ("ambiguous author: " ^ a))
 ;;
+
+(* TODO:claude *)
+let typesense_schema =
+  let open Ezjsonm in
+  dict [
+    ("name", string "contacts");
+    ("fields", list (fun d -> dict d) [
+      [("name", string "id"); ("type", string "string")];
+      [("name", string "name"); ("type", string "string")];
+      [("name", string "email"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "affiliation"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "role"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "location"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "tags"); ("type", string "string[]"); ("facet", bool true)];
+      [("name", string "orcid"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "github"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "twitter"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "website"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "notes"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "last_contact"); ("type", string "string"); ("optional", bool true)];
+    ]);
+  ]

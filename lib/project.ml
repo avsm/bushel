@@ -51,3 +51,25 @@ let of_md fname =
 ;;
 
 let lookup projects slug = List.find_opt (fun p -> p.slug = slug) projects
+
+(* TODO:claude *)
+let typesense_schema =
+  let open Ezjsonm in
+  dict [
+    ("name", string "projects");
+    ("fields", list (fun d -> dict d) [
+      [("name", string "id"); ("type", string "string")];
+      [("name", string "title"); ("type", string "string")];
+      [("name", string "description"); ("type", string "string")];
+      [("name", string "date"); ("type", string "string")];
+      [("name", string "tags"); ("type", string "string[]"); ("facet", bool true)];
+      [("name", string "repository_url"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "homepage_url"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "languages"); ("type", string "string[]"); ("facet", bool true); ("optional", bool true)];
+      [("name", string "license"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
+      [("name", string "status"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
+      [("name", string "related_papers"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "related_talks"); ("type", string "string[]"); ("optional", bool true)];
+    ]);
+    ("default_sorting_field", string "date");
+  ]

@@ -10,3 +10,11 @@
  (modules bushel_main bushel_obsidian bushel_paper bushel_video bushel_thumbs bushel_faces bushel_links)
  (flags (:standard -w -69))
  (libraries bushel bushel_common cmdliner cohttp-lwt-unix lwt.unix yaml ezjsonm zotero-translation peertube fmt fmt.cli fmt.tty logs logs.cli logs.fmt cmarkit karakeep uri unix))
+
+(executable
+ (name bushel_typesense)
+ (public_name bushel-typesense)
+ (package bushel)
+ (modules bushel_typesense)
+ (flags (:standard -w -69))
+ (libraries bushel bushel_common cmdliner lwt.unix))

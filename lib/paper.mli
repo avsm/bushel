@@ -43,3 +43,4 @@ val slugs : ts -> string list
 val lookup : ts -> string -> t option
 val of_md : slug:string -> ver:string -> string -> t
 val to_yaml : ?abstract:string -> ver:string -> Ezjsonm.value -> string
+val typesense_schema : Ezjsonm.value

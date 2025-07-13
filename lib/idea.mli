@@ -51,3 +51,4 @@ val project : t -> string
 val compare : t -> t -> int
 val lookup : t list -> string -> t option
 val of_md : string -> t
+val typesense_schema : Ezjsonm.value
