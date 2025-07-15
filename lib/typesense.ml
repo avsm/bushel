@@ -6,6 +6,7 @@ open Cohttp_lwt_unix
 type config = {
   endpoint : string;
   api_key : string;
+  openai_key : string;
 }
 
 type error = 
@@ -254,6 +255,30 @@ let load_bushel_data data_dir =
   (load_contacts data_dir, load_papers data_dir, load_projects data_dir,
    load_news data_dir, load_videos data_dir, load_notes data_dir, load_ideas data_dir)
 
+(** TODO:claude Helper function to add embedding field to schema *)
+let add_embedding_field_to_schema schema config embedding_from_fields =
+  let open Ezjsonm in
+  let fields = get_dict schema |> List.assoc "fields" |> get_list (fun f -> f) in
+  let embedding_field = dict [
+    ("name", string "embedding");
+    ("type", string "float[]");
+    ("embed", dict [
+      ("from", list string embedding_from_fields);
+      ("model_config", dict [
+        ("model_name", string "openai/text-embedding-3-small");
+        ("api_key", string config.openai_key);
+      ]);
+    ]);
+  ] in
+  let updated_fields = fields @ [embedding_field] in
+  let updated_schema = 
+    List.map (fun (k, v) ->
+      if k = "fields" then (k, list (fun f -> f) updated_fields)
+      else (k, v)
+    ) (get_dict schema)
+  in
+  dict updated_schema
+
 (** TODO:claude Upload all bushel objects to their respective collections *)
 let upload_all config data_dir =
   let* () = Lwt_io.write Lwt_io.stdout (Fmt.str "Loading bushel data from %s\n" data_dir) in
@@ -261,13 +286,13 @@ let upload_all config data_dir =
   let (contacts, papers, projects, news, videos, notes, ideas) = load_bushel_data data_dir in
 
   let collections = [
-    ("contacts", Contact.typesense_schema, (List.map contact_to_document contacts : Ezjsonm.value list));
-    ("papers", Paper.typesense_schema, (List.map paper_to_document papers : Ezjsonm.value list));
-    ("videos", Video.typesense_schema, (List.map video_to_document videos : Ezjsonm.value list));
-    ("projects", Project.typesense_schema, (List.map project_to_document projects : Ezjsonm.value list));
-    ("news", News.typesense_schema, (List.map news_to_document news : Ezjsonm.value list));
-    ("notes", Note.typesense_schema, (List.map note_to_document notes : Ezjsonm.value list));
-    ("ideas", Idea.typesense_schema, (List.map idea_to_document ideas : Ezjsonm.value list));
+    ("contacts", add_embedding_field_to_schema Contact.typesense_schema config ["name"; "names"], (List.map contact_to_document contacts : Ezjsonm.value list));
+    ("papers", add_embedding_field_to_schema Paper.typesense_schema config ["title"; "abstract"; "authors"], (List.map paper_to_document papers : Ezjsonm.value list));
+    ("videos", add_embedding_field_to_schema Video.typesense_schema config ["title"; "description"], (List.map video_to_document videos : Ezjsonm.value list));
+    ("projects", add_embedding_field_to_schema Project.typesense_schema config ["title"; "description"; "tags"], (List.map project_to_document projects : Ezjsonm.value list));
+    ("news", add_embedding_field_to_schema News.typesense_schema config ["title"; "content"; "tags"], (List.map news_to_document news : Ezjsonm.value list));
+    ("notes", add_embedding_field_to_schema Note.typesense_schema config ["title"; "content"; "tags"], (List.map note_to_document notes : Ezjsonm.value list));
+    ("ideas", add_embedding_field_to_schema Idea.typesense_schema config ["title"; "description"; "tags"], (List.map idea_to_document ideas : Ezjsonm.value list));
   ] in
 
   let upload_collection ((name, schema, documents) : string * Ezjsonm.value * Ezjsonm.value list) =
@@ -320,3 +345,178 @@ let upload_all config data_dir =
   in
 
   Lwt_list.iter_s upload_collection collections
+
+(** TODO:claude Search result types *)
+type search_result = {
+  id: string;
+  title: string;
+  content: string;
+  score: float;
+  collection: string;
+  highlights: (string * string list) list;
+}
+
+type search_response = {
+  hits: search_result list;
+  total: int;
+  query_time: float;
+}
+
+(** TODO:claude Parse search result from JSON *)
+let parse_search_result collection json =
+  let open Ezjsonm in
+  let document = get_dict json |> List.assoc "document" in
+  let highlights = try get_dict json |> List.assoc "highlights" with _ -> `A [] in
+  let score = try get_dict json |> List.assoc "text_match" |> get_float with _ -> 0.0 in
+  
+  let id = get_dict document |> List.assoc "id" |> get_string in
+  let title = try get_dict document |> List.assoc "title" |> get_string with _ -> "" in
+  let content = try
+    match collection with
+    | "papers" -> get_dict document |> List.assoc "abstract" |> get_string
+    | "projects" -> get_dict document |> List.assoc "description" |> get_string
+    | "news" -> get_dict document |> List.assoc "content" |> get_string
+    | "videos" -> get_dict document |> List.assoc "description" |> get_string
+    | "notes" -> get_dict document |> List.assoc "content" |> get_string
+    | "ideas" -> get_dict document |> List.assoc "description" |> get_string
+    | "contacts" -> get_dict document |> List.assoc "name" |> get_string
+    | _ -> ""
+  with _ -> "" in
+  
+  let parse_highlights highlights =
+    try
+      get_list (fun h ->
+        let field = get_dict h |> List.assoc "field" |> get_string in
+        let snippets = get_dict h |> List.assoc "snippets" |> get_list get_string in
+        (field, snippets)
+      ) highlights
+    with _ -> []
+  in
+  
+  { id; title; content; score; collection; highlights = parse_highlights highlights }
+
+(** TODO:claude Parse search response from JSON *)
+let parse_search_response collection json =
+  let open Ezjsonm in
+  let hits = get_dict json |> List.assoc "hits" |> get_list (parse_search_result collection) in
+  let total = get_dict json |> List.assoc "found" |> get_int in
+  let query_time = get_dict json |> List.assoc "search_time_ms" |> get_float in
+  { hits; total; query_time }
+
+(** TODO:claude Search a single collection *)
+let search_collection config collection_name query ?(limit=10) ?(offset=0) () =
+  let escaped_query = Uri.pct_encode query in
+  let query_fields = match collection_name with
+    | "papers" -> "title,abstract,authors"
+    | "projects" -> "title,description"
+    | "news" -> "title,content"
+    | "videos" -> "title,description"
+    | "notes" -> "title,content"
+    | "ideas" -> "title,description"
+    | "contacts" -> "name,names"
+    | _ -> "title,content,description,abstract"
+  in
+  let path = Printf.sprintf "/collections/%s/documents/search?q=%s&query_by=%s&per_page=%d&page=%d&highlight_full_fields=%s"
+    collection_name escaped_query query_fields limit ((offset / limit) + 1) query_fields in
+  let* result = make_request config path in
+  match result with
+  | Ok response_str ->
+    (try
+      let json = Ezjsonm.from_string response_str in
+      let search_response = parse_search_response collection_name json in
+      Lwt.return_ok search_response
+    with exn ->
+      Lwt.return_error (Json_error (Printexc.to_string exn)))
+  | Error err -> Lwt.return_error err
+
+(** TODO:claude Helper function to drop n elements from list *)
+let rec drop n lst =
+  if n <= 0 then lst
+  else match lst with
+  | [] -> []
+  | _ :: tl -> drop (n - 1) tl
+
+(** TODO:claude Helper function to take n elements from list *)
+let rec take n lst =
+  if n <= 0 then []
+  else match lst with
+  | [] -> []
+  | hd :: tl -> hd :: take (n - 1) tl
+
+(** TODO:claude Search across all collections *)
+let search_all config query ?(limit=10) ?(offset=0) () =
+  let collections = ["contacts"; "papers"; "projects"; "news"; "videos"; "notes"; "ideas"] in
+  let search_one collection = search_collection config collection query ~limit ~offset () in
+  let* results = Lwt_list.map_s search_one collections in
+  
+  (* Collect all successful results *)
+  let all_hits = List.fold_left (fun acc result ->
+    match result with
+    | Ok response -> response.hits @ acc
+    | Error _ -> acc
+  ) [] results in
+  
+  (* Sort by score descending *)
+  let sorted_hits = List.sort (fun a b -> Float.compare b.score a.score) all_hits in
+  
+  (* Apply limit and offset *)
+  let dropped_hits = drop offset sorted_hits in
+  let final_hits = take limit dropped_hits in
+  
+  let total = List.length all_hits in
+  let query_time = List.fold_left (fun acc result ->
+    match result with
+    | Ok response -> acc +. response.query_time
+    | Error _ -> acc
+  ) 0.0 results in
+  
+  Lwt.return_ok { hits = final_hits; total; query_time }
+
+(** TODO:claude List all collections *)
+let list_collections config =
+  let* result = make_request config "/collections" in
+  match result with
+  | Ok response_str ->
+    (try
+      let json = Ezjsonm.from_string response_str in
+      let collections = Ezjsonm.get_list (fun c ->
+        let name = Ezjsonm.get_dict c |> List.assoc "name" |> Ezjsonm.get_string in
+        let num_docs = Ezjsonm.get_dict c |> List.assoc "num_documents" |> Ezjsonm.get_int in
+        (name, num_docs)
+      ) json in
+      Lwt.return_ok collections
+    with exn ->
+      Lwt.return_error (Json_error (Printexc.to_string exn)))
+  | Error err -> Lwt.return_error err
+
+(** TODO:claude Load configuration from files *)
+let load_config_from_files () =
+  let read_file_if_exists filename =
+    if Sys.file_exists filename then
+      let ic = open_in filename in
+      let content = really_input_string ic (in_channel_length ic) in
+      close_in ic;
+      Some (String.trim content)
+    else None
+  in
+  
+  let endpoint = match read_file_if_exists ".typesense-url" with
+    | Some url -> url
+    | None -> "http://localhost:8108"
+  in
+  
+  let api_key = match read_file_if_exists ".typesense-api" with
+    | Some key -> key
+    | None -> 
+      try Sys.getenv "TYPESENSE_API_KEY"
+      with Not_found -> ""
+  in
+  
+  let openai_key = match read_file_if_exists ".openrouter-api" with
+    | Some key -> key
+    | None -> 
+      try Sys.getenv "OPENAI_API_KEY"
+      with Not_found -> ""
+  in
+  
+  { endpoint; api_key; openai_key }
