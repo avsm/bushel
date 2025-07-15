@@ -24,6 +24,7 @@
   yaml
   lwt
   cohttp-lwt-unix
+  fmt
   peertube
   karakeep
   cmdliner))

@@ -41,6 +41,9 @@ let journal { paper; _ } =
       (Printf.sprintf "no journal found for %s\n%!" (Ezjsonm.value_to_string paper))
 ;;
 
+(** TODO:claude Helper to extract raw JSON *)
+let raw_json { paper; _ } = paper
+
 let doi { paper; _ } =
   try Some (key paper "doi" |> J.get_string) with
   | _ -> None
@@ -230,14 +233,15 @@ let typesense_schema =
       [("name", string "authors"); ("type", string "string[]")];
       [("name", string "abstract"); ("type", string "string")];
       [("name", string "date"); ("type", string "string")];
+      [("name", string "date_timestamp"); ("type", string "int64")];
       [("name", string "tags"); ("type", string "string[]"); ("facet", bool true)];
-      [("name", string "doi"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "doi"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "arxiv_id"); ("type", string "string"); ("optional", bool true)];
-      [("name", string "pdf_url"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "pdf_url"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "thumbnail_url"); ("type", string "string"); ("optional", bool true)];
-      [("name", string "journal"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "journal"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "related_projects"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "related_talks"); ("type", string "string[]"); ("optional", bool true)];
     ]);
-    ("default_sorting_field", string "date");
+    ("default_sorting_field", string "date_timestamp");
   ]

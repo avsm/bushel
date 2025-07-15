@@ -172,15 +172,18 @@ let typesense_schema =
       [("name", string "id"); ("type", string "string")];
       [("name", string "title"); ("type", string "string")];
       [("name", string "description"); ("type", string "string")];
+      [("name", string "year"); ("type", string "int32")];
       [("name", string "date"); ("type", string "string")];
+      [("name", string "date_timestamp"); ("type", string "int64")];
       [("name", string "tags"); ("type", string "string[]"); ("facet", bool true)];
       [("name", string "level"); ("type", string "string"); ("facet", bool true)];
       [("name", string "status"); ("type", string "string"); ("facet", bool true)];
       [("name", string "project"); ("type", string "string"); ("facet", bool true)];
       [("name", string "supervisors"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "body"); ("type", string "string"); ("optional", bool true)];
       [("name", string "students"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "reading"); ("type", string "string"); ("optional", bool true)];
       [("name", string "url"); ("type", string "string"); ("optional", bool true)];
     ]);
-    ("default_sorting_field", string "date");
+    ("default_sorting_field", string "date_timestamp");
   ]

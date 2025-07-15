@@ -68,8 +68,8 @@ let parse_bookmark json =
   let id = 
     try J.find json ["id"] |> J.get_string 
     with e -> 
-      Printf.eprintf "Error parsing bookmark ID: %s\n" (Printexc.to_string e);
-      Printf.eprintf "JSON: %s\n" (J.value_to_string json);
+      prerr_endline (Fmt.str "Error parsing bookmark ID: %s" (Printexc.to_string e));
+      prerr_endline (Fmt.str "JSON: %s" (J.value_to_string json));
       failwith "Unable to parse bookmark ID"
   in
   
@@ -99,7 +99,7 @@ let parse_bookmark json =
               | _ -> failwith "No URL or asset ID found in bookmark"))
       | _ ->
           (* Debug output to understand what we're getting *)
-          Printf.eprintf "Bookmark JSON structure: %s\n" (J.value_to_string json);
+          prerr_endline (Fmt.str "Bookmark JSON structure: %s" (J.value_to_string json));
           failwith "No URL found in bookmark"
   in
   
@@ -172,13 +172,13 @@ let parse_bookmark json =
 let parse_bookmark_response json =
   (* The response format is different based on endpoint, need to handle both structures *)
   (* Print the whole JSON structure for debugging *)
-  Printf.eprintf "Full response JSON: %s\n" (J.value_to_string json);
+  prerr_endline (Fmt.str "Full response JSON: %s" (J.value_to_string json));
   
   try 
     (* Standard list format with total count *)
     let total = J.find json ["total"] |> J.get_int in
     let bookmarks_json = J.find json ["data"] in
-    Printf.eprintf "Found bookmarks in data array\n";
+    prerr_endline "Found bookmarks in data array";
     let data = J.get_list parse_bookmark bookmarks_json in
     
     (* Try to extract nextCursor if available *)
@@ -189,18 +189,18 @@ let parse_bookmark_response json =
     
     { total; data; next_cursor }
   with e1 -> 
-    Printf.eprintf "First format parse error: %s\n" (Printexc.to_string e1);
+    prerr_endline (Fmt.str "First format parse error: %s" (Printexc.to_string e1));
     try
       (* Format with bookmarks array *)
       let bookmarks_json = J.find json ["bookmarks"] in
-      Printf.eprintf "Found bookmarks in bookmarks array\n";
+      prerr_endline "Found bookmarks in bookmarks array";
       let data = 
         try J.get_list parse_bookmark bookmarks_json 
         with e ->
-          Printf.eprintf "Error parsing bookmarks array: %s\n" (Printexc.to_string e);
-          Printf.eprintf "First bookmark sample: %s\n" 
+          prerr_endline (Fmt.str "Error parsing bookmarks array: %s" (Printexc.to_string e));
+          prerr_endline (Fmt.str "First bookmark sample: %s" 
             (try J.value_to_string (List.hd (J.get_list (fun x -> x) bookmarks_json))
-             with _ -> "Could not extract sample");
+             with _ -> "Could not extract sample"));
           []
       in
       
@@ -212,7 +212,7 @@ let parse_bookmark_response json =
       
       { total = List.length data; data; next_cursor }
     with e2 ->
-      Printf.eprintf "Second format parse error: %s\n" (Printexc.to_string e2);
+      prerr_endline (Fmt.str "Second format parse error: %s" (Printexc.to_string e2));
       try
         (* Check if it's an error response *)
         let error = J.find json ["error"] |> J.get_string in
@@ -220,23 +220,23 @@ let parse_bookmark_response json =
           try J.find json ["message"] |> J.get_string
           with _ -> "Unknown error"
         in
-        Printf.eprintf "API Error: %s - %s\n" error message;
+        prerr_endline (Fmt.str "API Error: %s - %s" error message);
         { total = 0; data = []; next_cursor = None }
       with _ ->
         try
           (* Alternate format without total (for endpoints like /tags/<id>/bookmarks) *)
-          Printf.eprintf "Trying alternate array format\n";
+          prerr_endline "Trying alternate array format";
           
           (* Debug the structure to identify the format *)
-          Printf.eprintf "JSON structure keys: %s\n" 
+          prerr_endline (Fmt.str "JSON structure keys: %s" 
             (match json with
              | `O fields -> 
                  String.concat ", " (List.map (fun (k, _) -> k) fields)
-             | _ -> "not an object");
+             | _ -> "not an object"));
           
           (* Check if it has a nextCursor but bookmarks are nested differently *)
           if J.find_opt json ["nextCursor"] <> None then begin
-            Printf.eprintf "Found nextCursor, checking alternate structures\n";
+            prerr_endline "Found nextCursor, checking alternate structures";
             
             (* Try different bookmark container paths *)
             let bookmarks_json =
@@ -246,7 +246,7 @@ let parse_bookmark_response json =
             
             match bookmarks_json with
             | Some json_array ->
-                Printf.eprintf "Found bookmarks in data field\n";
+                prerr_endline "Found bookmarks in data field";
                 begin try
                   let data = J.get_list parse_bookmark json_array in
                   let next_cursor = 
@@ -255,11 +255,11 @@ let parse_bookmark_response json =
                   in
                   { total = List.length data; data; next_cursor }
                 with e ->
-                  Printf.eprintf "Error parsing bookmarks from data: %s\n" (Printexc.to_string e);
+                  prerr_endline (Fmt.str "Error parsing bookmarks from data: %s" (Printexc.to_string e));
                   { total = 0; data = []; next_cursor = None }
                 end
             | None ->
-                Printf.eprintf "No bookmarks found in alternate structure\n";
+                prerr_endline "No bookmarks found in alternate structure";
                 { total = 0; data = []; next_cursor = None }
           end
           else begin
@@ -269,16 +269,16 @@ let parse_bookmark_response json =
                 let data = 
                   try J.get_list parse_bookmark json
                   with e ->
-                    Printf.eprintf "Error parsing root array: %s\n" (Printexc.to_string e);
+                    prerr_endline (Fmt.str "Error parsing root array: %s" (Printexc.to_string e));
                     []
                 in
                 { total = List.length data; data; next_cursor = None }
             | _ -> 
-                Printf.eprintf "Not an array at root level\n";
+                prerr_endline "Not an array at root level";
                 { total = 0; data = []; next_cursor = None }
           end
         with e3 ->
-          Printf.eprintf "Third format parse error: %s\n" (Printexc.to_string e3);
+          prerr_endline (Fmt.str "Third format parse error: %s" (Printexc.to_string e3));
           { total = 0; data = []; next_cursor = None }
 
 (** Helper function to consume and return response body data *)
@@ -291,7 +291,7 @@ let fetch_bookmarks ~api_key ?(limit=50) ?(offset=0) ?cursor ?(include_content=f
   let open Cohttp_lwt_unix in
   
   (* Base URL for bookmarks API *)
-  let url_base = Printf.sprintf "%s/api/v1/bookmarks?limit=%d&includeContent=%b" 
+  let url_base = Fmt.str "%s/api/v1/bookmarks?limit=%d&includeContent=%b" 
                   base_url limit include_content in
   
   (* Add pagination parameter - either cursor or offset *)
@@ -313,7 +313,7 @@ let fetch_bookmarks ~api_key ?(limit=50) ?(offset=0) ?cursor ?(include_content=f
           ) tags 
         in
         let tags_param = String.concat "," encoded_tags in
-        Printf.eprintf "Adding tags filter: %s\n" tags_param;
+        prerr_endline (Fmt.str "Adding tags filter: %s" tags_param);
         url ^ "&tags=" ^ tags_param
     | _ -> url
   in
@@ -322,7 +322,7 @@ let fetch_bookmarks ~api_key ?(limit=50) ?(offset=0) ?cursor ?(include_content=f
   let headers = Cohttp.Header.init ()
     |> fun h -> Cohttp.Header.add h "Authorization" ("Bearer " ^ api_key) in
   
-  Printf.eprintf "Fetching bookmarks from: %s\n" url;
+  prerr_endline (Fmt.str "Fetching bookmarks from: %s" url);
 
   (* Make the request *)
   Lwt.catch
@@ -330,7 +330,7 @@ let fetch_bookmarks ~api_key ?(limit=50) ?(offset=0) ?cursor ?(include_content=f
       Client.get ~headers (Uri.of_string url) >>= fun (resp, body) ->
       if resp.status = `OK then
         Cohttp_lwt.Body.to_string body >>= fun body_str ->
-        Printf.eprintf "Received %d bytes of response data\n" (String.length body_str);
+        prerr_endline (Fmt.str "Received %d bytes of response data" (String.length body_str));
         
         Lwt.catch
           (fun () ->
@@ -338,19 +338,19 @@ let fetch_bookmarks ~api_key ?(limit=50) ?(offset=0) ?cursor ?(include_content=f
             Lwt.return (parse_bookmark_response json)
           )
           (fun e ->
-            Printf.eprintf "JSON parsing error: %s\n" (Printexc.to_string e);
-            Printf.eprintf "Response body (first 200 chars): %s\n" 
-              (if String.length body_str > 200 then String.sub body_str 0 200 ^ "..." else body_str);
+            prerr_endline (Fmt.str "JSON parsing error: %s" (Printexc.to_string e));
+            prerr_endline (Fmt.str "Response body (first 200 chars): %s" 
+              (if String.length body_str > 200 then String.sub body_str 0 200 ^ "..." else body_str));
             Lwt.fail e
           )
       else
         let status_code = Cohttp.Code.code_of_status resp.status in
         consume_body body >>= fun _ ->
-        Printf.eprintf "HTTP error %d\n" status_code;
+        prerr_endline (Fmt.str "HTTP error %d" status_code);
         Lwt.fail_with (Fmt.str "HTTP error: %d" status_code)
     )
     (fun e ->
-      Printf.eprintf "Network error: %s\n" (Printexc.to_string e);
+      prerr_endline (Fmt.str "Network error: %s" (Printexc.to_string e));
       Lwt.fail e
     )
 
@@ -390,7 +390,7 @@ let fetch_all_bookmarks ~api_key ?(page_size=50) ?max_pages ?filter_tags ?(inclu
 (** Fetch detailed information for a single bookmark by ID *)
 let fetch_bookmark_details ~api_key base_url bookmark_id =
   let open Cohttp_lwt_unix in
-  let url = Printf.sprintf "%s/api/v1/bookmarks/%s" base_url bookmark_id in
+  let url = Fmt.str "%s/api/v1/bookmarks/%s" base_url bookmark_id in
   
   (* Set up headers with API key *)
   let headers = Cohttp.Header.init ()
@@ -408,7 +408,7 @@ let fetch_bookmark_details ~api_key base_url bookmark_id =
 
 (** Get the asset URL for a given asset ID *)
 let get_asset_url base_url asset_id =
-  Printf.sprintf "%s/api/assets/%s" base_url asset_id
+  Fmt.str "%s/api/assets/%s" base_url asset_id
 
 (** Fetch an asset from the Karakeep server as a binary string *)
 let fetch_asset ~api_key base_url asset_id =
@@ -468,7 +468,7 @@ let create_bookmark ~api_key ~url ?title ?note ?tags ?(favourited=false) ?(archi
   in
   
   (* Create the bookmark *)
-  let url_endpoint = Printf.sprintf "%s/api/v1/bookmarks" base_url in
+  let url_endpoint = Fmt.str "%s/api/v1/bookmarks" base_url in
   Client.post ~headers ~body:(Cohttp_lwt.Body.of_string body_str) (Uri.of_string url_endpoint) >>= fun (resp, body) ->
   
   if resp.status = `Created || resp.status = `OK then
@@ -488,7 +488,7 @@ let create_bookmark ~api_key ~url ?title ?note ?tags ?(favourited=false) ?(archi
          let tags_body_str = J.to_string tags_body in
          
          (* Add tags to the bookmark *)
-         let tags_url = Printf.sprintf "%s/api/v1/bookmarks/%s/tags" base_url bookmark.id in
+         let tags_url = Fmt.str "%s/api/v1/bookmarks/%s/tags" base_url bookmark.id in
          Client.post ~headers ~body:(Cohttp_lwt.Body.of_string tags_body_str) (Uri.of_string tags_url) >>= fun (resp, body) ->
          
          (* Always consume the response body *)

@@ -110,7 +110,12 @@ let typesense_schema =
       [("name", string "title"); ("type", string "string")];
       [("name", string "content"); ("type", string "string")];
       [("name", string "date"); ("type", string "string")];
+      [("name", string "date_timestamp"); ("type", string "int64")];
       [("name", string "tags"); ("type", string "string[]"); ("facet", bool true)];
+      [("name", string "body"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "draft"); ("type", string "bool")];
+      [("name", string "synopsis"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "titleimage"); ("type", string "string"); ("optional", bool true)];
       [("name", string "type"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
       [("name", string "status"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
       [("name", string "related_papers"); ("type", string "string[]"); ("optional", bool true)];
@@ -118,5 +123,5 @@ let typesense_schema =
       [("name", string "related_contacts"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "attachments"); ("type", string "string[]"); ("optional", bool true)];
     ]);
-    ("default_sorting_field", string "date");
+    ("default_sorting_field", string "date_timestamp");
   ]

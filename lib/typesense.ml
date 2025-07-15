@@ -14,9 +14,9 @@ type error =
   | Connection_error of string
 
 let pp_error fmt = function
-  | Http_error (code, msg) -> Format.fprintf fmt "HTTP %d: %s" code msg
-  | Json_error msg -> Format.fprintf fmt "JSON error: %s" msg
-  | Connection_error msg -> Format.fprintf fmt "Connection error: %s" msg
+  | Http_error (code, msg) -> Fmt.pf fmt "HTTP %d: %s" code msg
+  | Json_error msg -> Fmt.pf fmt "JSON error: %s" msg
+  | Connection_error msg -> Fmt.pf fmt "Connection error: %s" msg
 
 (** TODO:claude Create authentication headers for Typesense API *)
 let auth_headers api_key =
@@ -66,99 +66,155 @@ let upload_documents config collection_name (documents : Ezjsonm.value list) =
   make_request ~meth:`POST ~body config 
     (Printf.sprintf "/collections/%s/documents/import?action=upsert" collection_name)
 
+
 (** TODO:claude Convert Bushel objects to Typesense documents *)
+
+(** TODO:claude Helper function to convert Ptime to Unix timestamp *)
+let ptime_to_timestamp ptime =
+  let span = Ptime.to_span ptime in
+  let seconds = Ptime.Span.to_int_s span in
+  match seconds with
+  | Some s -> Int64.of_int s
+  | None -> 0L
+
+(** TODO:claude Helper function to convert date tuple to Unix timestamp *)
+let date_to_timestamp (year, month, day) =
+  match Ptime.of_date (year, month, day) with
+  | Some ptime -> ptime_to_timestamp ptime
+  | None -> 0L
 
 let contact_to_document (contact : Contact.t) =
   let open Ezjsonm in
+  let safe_string_list_from_opt = function
+    | Some s -> [s]
+    | None -> []
+  in
   dict [
     ("id", string (Contact.handle contact));
-    ("name", string (Contact.name contact));
     ("handle", string (Contact.handle contact));
-    ("email", option string (Contact.email contact));
-    ("github", option string (Contact.github contact));
-    ("twitter", option string (Contact.twitter contact));
-    ("url", option string (Contact.url contact));
+    ("name", string (Contact.name contact));
+    ("names", list string (Contact.names contact));
+    ("email", list string (safe_string_list_from_opt (Contact.email contact)));
+    ("icon", list string (safe_string_list_from_opt (Contact.icon contact)));
+    ("github", list string (safe_string_list_from_opt (Contact.github contact)));
+    ("twitter", list string (safe_string_list_from_opt (Contact.twitter contact)));
+    ("url", list string (safe_string_list_from_opt (Contact.url contact)));
   ]
 
 let paper_to_document (paper : Paper.t) =
-  let open Ezjsonm in
-  dict [
-    ("id", string (Paper.slug paper));
-    ("title", string (Paper.title paper));
-    ("authors", list string (Paper.authors paper));
-    ("abstract", string (Paper.abstract paper));
-    ("date", string (let y, m, d = Paper.date paper in Printf.sprintf "%04d-%02d-%02d" y m d));
-    ("tags", list string (Paper.tags paper));
-    ("doi", option string (Paper.doi paper));
-    ("pdf_url", option string (Paper.best_url paper));
-    ("journal", string (Paper.journal paper));
-    ("related_projects", list string (Paper.project_slugs paper));
+  let date_tuple = Paper.date paper in
+  
+  (* Helper to extract string arrays from JSON, handling both single strings and arrays *)
+  let extract_string_array_from_json json_field_name =
+    try
+      (* Access the raw JSON from the paper record *)
+      let paper_json = Paper.raw_json paper in
+      let value = Ezjsonm.get_dict paper_json |> List.assoc json_field_name in
+      match value with
+      | `String s -> [s]
+      | `A l -> List.filter_map (function `String s -> Some s | _ -> None) l
+      | _ -> []
+    with _ -> []
+  in
+  
+  Ezjsonm.dict [
+    ("id", Ezjsonm.string (Paper.slug paper));
+    ("title", Ezjsonm.string (Paper.title paper));
+    ("authors", Ezjsonm.list Ezjsonm.string (Paper.authors paper));
+    ("abstract", Ezjsonm.string (Paper.abstract paper));
+    ("date", Ezjsonm.string (let y, m, d = date_tuple in Printf.sprintf "%04d-%02d-%02d" y m d));
+    ("date_timestamp", Ezjsonm.int64 (date_to_timestamp date_tuple));
+    ("tags", Ezjsonm.list Ezjsonm.string (Paper.tags paper));
+    ("doi", Ezjsonm.list Ezjsonm.string (extract_string_array_from_json "doi"));
+    ("pdf_url", Ezjsonm.list Ezjsonm.string (extract_string_array_from_json "pdf_url"));
+    ("journal", Ezjsonm.list Ezjsonm.string (extract_string_array_from_json "journal"));
+    ("related_projects", Ezjsonm.list Ezjsonm.string (Paper.project_slugs paper));
   ]
 
 let project_to_document (project : Project.t) =
   let open Ezjsonm in
+  (* Use January 1st of start year as the date for sorting *)
+  let date_timestamp = date_to_timestamp (project.start, 1, 1) in
   dict [
     ("id", string project.slug);
     ("title", string (Project.title project));
+    ("description", string (Project.body project));  (* Use body as description *)
     ("start_year", int project.start);
-    ("finish_year", option int project.finish);
+    (* Skip finish_year for now due to type issues *)
+    ("date", string (Printf.sprintf "%04d-01-01" project.start));
+    ("date_timestamp", int64 date_timestamp);
     ("tags", list string (Project.tags project));
-    ("body", string (Project.body project));
-    ("ideas", string (Project.ideas project));
   ]
 
 let news_to_document (news : News.t) =
   let open Ezjsonm in
+  let datetime = News.datetime news in
   dict [
     ("id", string (News.slug news));
     ("title", string (News.title news));
-    ("date", string (Ptime.to_rfc3339 (News.datetime news)));
+    ("content", string (News.body news));  (* Use body as content *)
+    ("date", string (Ptime.to_rfc3339 datetime));
+    ("date_timestamp", int64 (ptime_to_timestamp datetime));
     ("tags", list string (News.tags news));
-    ("body", string (News.body news));
     ("url", string (News.site_url news));
   ]
 
 let video_to_document (video : Video.t) =
   let open Ezjsonm in
+  let datetime = Video.datetime video in
+  let safe_string_list_from_opt = function
+    | Some s -> [s]
+    | None -> []
+  in
   dict [
     ("id", string (Video.slug video));
     ("title", string (Video.title video));
     ("description", string (Video.body video));
-    ("published_date", string (Ptime.to_rfc3339 (Video.datetime video)));
+    ("published_date", string (Ptime.to_rfc3339 datetime));
+    ("date", string (Ptime.to_rfc3339 datetime));
+    ("date_timestamp", int64 (ptime_to_timestamp datetime));
     ("url", string (Video.url video));
     ("uuid", string (Video.uuid video));
     ("is_talk", bool (Video.talk video));
-    ("paper", option string (Video.paper video));
-    ("project", option string (Video.project video));
+    ("paper", list string (safe_string_list_from_opt (Video.paper video)));
+    ("project", list string (safe_string_list_from_opt (Video.project video)));
     ("tags", list string video.tags);
   ]
 
 let note_to_document (note : Note.t) =
   let open Ezjsonm in
+  let datetime = Note.datetime note in
+  let safe_string_list_from_opt = function
+    | Some s -> [s]
+    | None -> []
+  in
   dict [
     ("id", string (Note.slug note));
     ("title", string (Note.title note));
-    ("date", string (Ptime.to_rfc3339 (Note.datetime note)));
-    ("body", string (Note.body note));
+    ("date", string (Ptime.to_rfc3339 datetime));
+    ("date_timestamp", int64 (ptime_to_timestamp datetime));
+    ("content", string (Note.body note));
     ("tags", list string (Note.tags note));
     ("draft", bool (Note.draft note));
-    ("synopsis", option string (Note.synopsis note));
+    ("synopsis", list string (safe_string_list_from_opt (Note.synopsis note)));
     ("titleimage", option string (Note.titleimage note));
   ]
 
 let idea_to_document (idea : Idea.t) =
   let open Ezjsonm in
+  (* Use January 1st of the year as the date for sorting *)
+  let date_timestamp = date_to_timestamp (Idea.year idea, 1, 1) in
   dict [
     ("id", string idea.slug);
     ("title", string (Idea.title idea));
+    ("description", string (Idea.body idea));  (* Use body as description *)
     ("level", string (Idea.level_to_string (Idea.level idea)));
     ("project", string (Idea.project idea));
     ("status", string (Idea.status_to_string (Idea.status idea)));
     ("year", int (Idea.year idea));
+    ("date", string (Printf.sprintf "%04d-01-01" (Idea.year idea)));
+    ("date_timestamp", int64 date_timestamp);
     ("supervisors", list string (Idea.supervisors idea));
-    ("students", list string (Idea.students idea));
-    ("reading", string (Idea.reading idea));
-    ("body", string (Idea.body idea));
     ("tags", list string idea.tags);
   ]
 
@@ -200,53 +256,67 @@ let load_bushel_data data_dir =
 
 (** TODO:claude Upload all bushel objects to their respective collections *)
 let upload_all config data_dir =
-  let* () = Lwt_io.printf "Loading bushel data from %s\n" data_dir in
+  let* () = Lwt_io.write Lwt_io.stdout (Fmt.str "Loading bushel data from %s\n" data_dir) in
   
   let (contacts, papers, projects, news, videos, notes, ideas) = load_bushel_data data_dir in
 
   let collections = [
     ("contacts", Contact.typesense_schema, (List.map contact_to_document contacts : Ezjsonm.value list));
     ("papers", Paper.typesense_schema, (List.map paper_to_document papers : Ezjsonm.value list));
+    ("videos", Video.typesense_schema, (List.map video_to_document videos : Ezjsonm.value list));
     ("projects", Project.typesense_schema, (List.map project_to_document projects : Ezjsonm.value list));
     ("news", News.typesense_schema, (List.map news_to_document news : Ezjsonm.value list));
-    ("videos", Video.typesense_schema, (List.map video_to_document videos : Ezjsonm.value list));
     ("notes", Note.typesense_schema, (List.map note_to_document notes : Ezjsonm.value list));
     ("ideas", Idea.typesense_schema, (List.map idea_to_document ideas : Ezjsonm.value list));
   ] in
 
   let upload_collection ((name, schema, documents) : string * Ezjsonm.value * Ezjsonm.value list) =
-    let* () = Lwt_io.printf "Processing collection: %s\n" name in
+    let* () = Lwt_io.write Lwt_io.stdout (Fmt.str "Processing collection: %s\n" name) in
     let* exists = collection_exists config name in
     let* () = 
       if exists then (
-        let* () = Lwt_io.printf "Collection %s exists, deleting...\n" name in
+        let* () = Lwt_io.write Lwt_io.stdout (Fmt.str "Collection %s exists, deleting...\n" name) in
         let* result = delete_collection config name in
         match result with
-        | Ok _ -> Lwt_io.printf "Deleted collection %s\n" name
+        | Ok _ -> Lwt_io.write Lwt_io.stdout (Fmt.str "Deleted collection %s\n" name)
         | Error err -> 
-          let err_str = Format.asprintf "%a" pp_error err in
-          Lwt_io.printf "Failed to delete collection %s: %s\n" name err_str
+          let err_str = Fmt.str "%a" pp_error err in
+          Lwt_io.write Lwt_io.stdout (Fmt.str "Failed to delete collection %s: %s\n" name err_str)
       ) else
         Lwt.return_unit
     in
-    let* () = Lwt_io.printf "Creating collection %s with %d documents\n" name (List.length documents) in
+    let* () = Lwt_io.write Lwt_io.stdout (Fmt.str "Creating collection %s with %d documents\n" name (List.length documents)) in
     let* result = create_collection config schema in
     match result with
     | Ok _ ->
-      let* () = Lwt_io.printf "Created collection %s\n" name in
+      let* () = Lwt_io.write Lwt_io.stdout (Fmt.str "Created collection %s\n" name) in
       if documents = [] then
-        Lwt_io.printf "No documents to upload for %s\n" name
+        Lwt_io.write Lwt_io.stdout (Fmt.str "No documents to upload for %s\n" name)
       else (
         let* result = upload_documents config name documents in
         match result with
-        | Ok _ -> Lwt_io.printf "Uploaded %d documents to %s\n" (List.length documents) name
+        | Ok response -> 
+          (* Count successes and failures *)
+          let lines = String.split_on_char '\n' response in
+          let successes = List.fold_left (fun acc line -> 
+            if String.contains line ':' && Str.string_match (Str.regexp ".*success.*true.*") line 0 then acc + 1 else acc) 0 lines in
+          let failures = List.fold_left (fun acc line -> 
+            if String.contains line ':' && Str.string_match (Str.regexp ".*success.*false.*") line 0 then acc + 1 else acc) 0 lines in
+          let* () = Lwt_io.write Lwt_io.stdout (Fmt.str "Upload results for %s: %d successful, %d failed out of %d total\n" 
+            name successes failures (List.length documents)) in
+          if failures > 0 then
+            let* () = Lwt_io.write Lwt_io.stdout (Fmt.str "Failed documents in %s:\n" name) in
+            let failed_lines = List.filter (fun line -> Str.string_match (Str.regexp ".*success.*false.*") line 0) lines in
+            Lwt_list.iter_s (fun line -> Lwt_io.write Lwt_io.stdout (line ^ "\n")) failed_lines
+          else
+            Lwt.return_unit
         | Error err -> 
-          let err_str = Format.asprintf "%a" pp_error err in
-          Lwt_io.printf "Failed to upload documents to %s: %s\n" name err_str
+          let err_str = Fmt.str "%a" pp_error err in
+          Lwt_io.write Lwt_io.stdout (Fmt.str "Failed to upload documents to %s: %s\n" name err_str)
       )
     | Error err ->
-      let err_str = Format.asprintf "%a" pp_error err in
-      Lwt_io.printf "Failed to create collection %s: %s\n" name err_str
+      let err_str = Fmt.str "%a" pp_error err in
+      Lwt_io.write Lwt_io.stdout (Fmt.str "Failed to create collection %s: %s\n" name err_str)
   in
 
   Lwt_list.iter_s upload_collection collections

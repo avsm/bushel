@@ -118,16 +118,23 @@ let typesense_schema =
       [("name", string "id"); ("type", string "string")];
       [("name", string "title"); ("type", string "string")];
       [("name", string "description"); ("type", string "string")];
+      [("name", string "published_date"); ("type", string "string")];
       [("name", string "date"); ("type", string "string")];
+      [("name", string "date_timestamp"); ("type", string "int64")];
       [("name", string "tags"); ("type", string "string[]"); ("facet", bool true)];
-      [("name", string "video_url"); ("type", string "string")];
+      [("name", string "url"); ("type", string "string")];
+      [("name", string "uuid"); ("type", string "string")];
+      [("name", string "is_talk"); ("type", string "bool")];
+      [("name", string "paper"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "project"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "video_url"); ("type", string "string"); ("optional", bool true)];
       [("name", string "embed_url"); ("type", string "string"); ("optional", bool true)];
       [("name", string "duration"); ("type", string "int32"); ("optional", bool true)];
-      [("name", string "channel"); ("type", string "string"); ("facet", bool true)];
-      [("name", string "platform"); ("type", string "string"); ("facet", bool true)];
+      [("name", string "channel"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
+      [("name", string "platform"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
       [("name", string "views"); ("type", string "int32"); ("optional", bool true)];
       [("name", string "related_papers"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "related_talks"); ("type", string "string[]"); ("optional", bool true)];
     ]);
-    ("default_sorting_field", string "date");
+    ("default_sorting_field", string "date_timestamp");
   ]

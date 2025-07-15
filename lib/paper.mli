@@ -18,6 +18,7 @@ val project_slugs : t -> string list
 val slides : t -> string list
 val bibtype : t -> string
 val journal : t -> string
+val raw_json : t -> Ezjsonm.value
 val doi : t -> string option
 val volume : t -> string option
 val video : t -> string option

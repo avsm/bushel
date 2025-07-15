@@ -104,17 +104,13 @@ let typesense_schema =
     ("name", string "contacts");
     ("fields", list (fun d -> dict d) [
       [("name", string "id"); ("type", string "string")];
+      [("name", string "handle"); ("type", string "string")];
       [("name", string "name"); ("type", string "string")];
-      [("name", string "email"); ("type", string "string"); ("optional", bool true)];
-      [("name", string "affiliation"); ("type", string "string"); ("optional", bool true)];
-      [("name", string "role"); ("type", string "string"); ("optional", bool true)];
-      [("name", string "location"); ("type", string "string"); ("optional", bool true)];
-      [("name", string "tags"); ("type", string "string[]"); ("facet", bool true)];
-      [("name", string "orcid"); ("type", string "string"); ("optional", bool true)];
-      [("name", string "github"); ("type", string "string"); ("optional", bool true)];
-      [("name", string "twitter"); ("type", string "string"); ("optional", bool true)];
-      [("name", string "website"); ("type", string "string"); ("optional", bool true)];
-      [("name", string "notes"); ("type", string "string"); ("optional", bool true)];
-      [("name", string "last_contact"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "names"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "email"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "icon"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "github"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "twitter"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "url"); ("type", string "string[]"); ("optional", bool true)];
     ]);
   ]

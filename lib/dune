@@ -11,4 +11,5 @@
   yaml.unix
   jekyll-format
   lwt
-  cohttp-lwt-unix))
+  cohttp-lwt-unix
+  fmt))
