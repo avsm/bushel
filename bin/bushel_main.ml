@@ -25,6 +25,9 @@ let paper_cmd =
   let info = Cmd.info "paper" ~version ~doc in
   Cmd.v info Bushel_paper.term
 
+(* Paper classify command *)
+let paper_classify_cmd = Bushel_paper_classify.cmd
+
 (* Thumbs command *)
 let thumbs_cmd =
   let doc = "Generate thumbnails from paper PDFs" in
@@ -68,6 +71,7 @@ let bushel_cmd =
     links_cmd;
     obsidian_cmd;
     paper_cmd;
+    paper_classify_cmd;
     query_cmd;
     thumbs_cmd;
     video_cmd;

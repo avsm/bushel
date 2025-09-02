@@ -212,12 +212,52 @@ let best_url p =
   else url p
 ;;
 
+(** TODO:claude Classification types for papers *)
+type classification = Full | Short | Preprint
+
+let string_of_classification = function
+  | Full -> "full"
+  | Short -> "short" 
+  | Preprint -> "preprint"
+
+let classification_of_string = function
+  | "full" -> Full
+  | "short" -> Short
+  | "preprint" -> Preprint
+  | _ -> Full (* default to full if unknown *)
+
+(** TODO:claude Get classification from paper metadata, with fallback to heuristic *)
+let classification { paper; _ } =
+  try 
+    key paper "classification" |> J.get_string |> classification_of_string
+  with _ -> 
+    (* Fallback to heuristic classification based on venue/bibtype *)
+    let bibtype = try key paper "bibtype" |> J.get_string with _ -> "" in
+    let journal = try key paper "journal" |> J.get_string |> String.lowercase_ascii with _ -> "" in
+    let booktitle = try key paper "booktitle" |> J.get_string |> String.lowercase_ascii with _ -> "" in
+    
+    (* Helper function to check if text contains any of the patterns *)
+    let contains_any text patterns =
+      List.exists (fun pattern ->
+        let regex = Re.Perl.compile_pat ~opts:[`Caseless] pattern in
+        Re.execp regex text
+      ) patterns
+    in
+    
+    (* Check for preprint indicators *)
+    if contains_any journal ["arxiv"] || contains_any booktitle ["arxiv"] || bibtype = "misc"
+    then Preprint
+    (* Check for workshop/short paper indicators *)
+    else if contains_any journal ["workshop"; "wip"; "poster"; "demo"; "hotdep"; "short"] ||
+            contains_any booktitle ["workshop"; "wip"; "poster"; "demo"; "hotdep"; "short"]
+    then Short
+    (* Default to full paper (journal or conference) *)
+    else Full
+
 (* TODO:claude *)
-let to_yaml ?abstract ~ver json_data =
-  (* Add version to the JSON data *)
-  let keys = J.get_dict json_data in
-  let json_with_version = `O (("version", `String ver) :: keys) in
-  let frontmatter = Yaml.to_string_exn json_with_version in
+let to_yaml ?abstract ~ver:_ json_data =
+  (* Don't add version - it's inferred from filename *)
+  let frontmatter = Yaml.to_string_exn json_data in
   match abstract with
   | Some abs -> Printf.sprintf "---\n%s---\n\n%s\n" frontmatter abs
   | None -> Printf.sprintf "---\n%s---\n" frontmatter

@@ -45,3 +45,8 @@ val lookup : ts -> string -> t option
 val of_md : slug:string -> ver:string -> string -> t
 val to_yaml : ?abstract:string -> ver:string -> Ezjsonm.value -> string
 val typesense_schema : Ezjsonm.value
+
+type classification = Full | Short | Preprint
+val string_of_classification : classification -> string
+val classification_of_string : string -> classification
+val classification : t -> classification

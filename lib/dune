@@ -13,4 +13,5 @@
   lwt
   cohttp-lwt-unix
   fmt
+  re
   typesense-client))
