@@ -12,4 +12,5 @@
   jekyll-format
   lwt
   cohttp-lwt-unix
-  fmt))
+  fmt
+  typesense-client))

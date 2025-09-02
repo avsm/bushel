@@ -6,3 +6,4 @@ _build
 KARAKEEP.md
 karakeep-src
 .DS_Store
+.openapi-key

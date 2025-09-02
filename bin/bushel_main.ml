@@ -37,10 +37,10 @@ let video_cmd =
   let info = Cmd.info "video" ~version ~doc in
   Cmd.v info Bushel_video.term
 
-(* Search command *)
-let search_cmd =
-  let doc = "Search Bushel collections in Typesense" in
-  let info = Cmd.info "search" ~version ~doc in
+(* Query command *)
+let query_cmd =
+  let doc = "Query Bushel collections using multisearch" in
+  let info = Cmd.info "query" ~version ~doc in
   Cmd.v info Bushel_search.term
 
 (* Main command *)
@@ -68,7 +68,7 @@ let bushel_cmd =
     links_cmd;
     obsidian_cmd;
     paper_cmd;
-    search_cmd;
+    query_cmd;
     thumbs_cmd;
     video_cmd;
   ]

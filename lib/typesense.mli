@@ -64,6 +64,7 @@ type search_result = {
   score: float;                             (** Relevance score *)
   collection: string;                       (** Collection name *)
   highlights: (string * string list) list; (** Highlighted search terms by field *)
+  document: Ezjsonm.value;                  (** Raw document for flexible field access *)
 }
 
 (** Search response containing results and metadata *)
@@ -82,6 +83,21 @@ val search_collection : config -> string -> string -> ?limit:int -> ?offset:int 
     TODO:claude *)
 val search_all : config -> string -> ?limit:int -> ?offset:int -> unit -> (search_response, error) result Lwt.t
 
+(** Multisearch response containing results from multiple collections *)
+type multisearch_response = {
+  results: search_response list;                (** Results from each collection *)
+}
+
+(** Perform multisearch across all collections using Typesense's multi_search endpoint.
+    More efficient than individual searches as it's done in a single request.
+    TODO:claude *)
+val multisearch : config -> string -> ?limit:int -> unit -> (multisearch_response, error) result Lwt.t
+
+(** Combine multisearch results into a single result set.
+    Results are sorted by relevance score and paginated.
+    TODO:claude *)
+val combine_multisearch_results : multisearch_response -> ?limit:int -> ?offset:int -> unit -> search_response
+
 (** List all collections with document counts.
     Returns a list of (collection_name, document_count) pairs.
     TODO:claude *)
@@ -91,3 +107,8 @@ val list_collections : config -> ((string * int) list, error) result Lwt.t
     Falls back to environment variables and defaults.
     TODO:claude *)
 val load_config_from_files : unit -> config
+
+(** Pretty-print a search result in a one-line format with relevant information.
+    Shows different fields based on the collection type (papers, videos, etc.).
+    TODO:claude *)
+val pp_search_result_oneline : search_result -> string

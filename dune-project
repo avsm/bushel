@@ -27,6 +27,7 @@
   fmt
   peertube
   karakeep
+  typesense-client
   cmdliner))
 
 (package
@@ -52,3 +53,16 @@
   cohttp-lwt-unix
   ptime
   fmt))
+
+(package
+ (name typesense-client)
+ (synopsis "Standalone Typesense client for OCaml")
+ (description "A standalone Typesense client that can be compiled to JavaScript")
+ (depends
+  (ocaml (>= "5.2.0"))
+  ezjsonm
+  lwt
+  cohttp-lwt-unix
+  ptime
+  fmt
+  uri))
