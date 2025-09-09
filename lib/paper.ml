@@ -231,10 +231,11 @@ let classification { paper; _ } =
   try 
     key paper "classification" |> J.get_string |> classification_of_string
   with _ -> 
-    (* Fallback to heuristic classification based on venue/bibtype *)
+    (* Fallback to heuristic classification based on venue/bibtype/title *)
     let bibtype = try key paper "bibtype" |> J.get_string with _ -> "" in
     let journal = try key paper "journal" |> J.get_string |> String.lowercase_ascii with _ -> "" in
     let booktitle = try key paper "booktitle" |> J.get_string |> String.lowercase_ascii with _ -> "" in
+    let title_str = try key paper "title" |> J.get_string |> String.lowercase_ascii with _ -> "" in
     
     (* Helper function to check if text contains any of the patterns *)
     let contains_any text patterns =
@@ -245,21 +246,52 @@ let classification { paper; _ } =
     in
     
     (* Check for preprint indicators *)
-    if contains_any journal ["arxiv"] || contains_any booktitle ["arxiv"] || bibtype = "misc"
+    let bibtype_lower = String.lowercase_ascii bibtype in
+    if contains_any journal ["arxiv"] || contains_any booktitle ["arxiv"] || bibtype_lower = "misc" || bibtype_lower = "techreport"
     then Preprint
-    (* Check for workshop/short paper indicators *)
+    (* Check for workshop/short paper indicators including in title *)
     else if contains_any journal ["workshop"; "wip"; "poster"; "demo"; "hotdep"; "short"] ||
-            contains_any booktitle ["workshop"; "wip"; "poster"; "demo"; "hotdep"; "short"]
+            contains_any booktitle ["workshop"; "wip"; "poster"; "demo"; "hotdep"; "short"] ||
+            contains_any title_str ["poster"]
     then Short
     (* Default to full paper (journal or conference) *)
     else Full
+
+(** TODO:claude Check if paper is marked as selected *)
+let selected { paper; _ } =
+  try 
+    let keys = J.get_dict paper in
+    match List.assoc_opt "selected" keys with
+    | Some (`Bool true) -> true
+    | Some (`String "true") -> true
+    | _ -> false
+  with _ -> false
+
+(** TODO:claude Get note field from paper metadata *)
+let note { paper; _ } =
+  try 
+    let keys = J.get_dict paper in
+    match List.assoc_opt "note" keys with
+    | Some note_json -> Some (J.get_string note_json)
+    | None -> None
+  with _ -> None
 
 (* TODO:claude *)
 let to_yaml ?abstract ~ver:_ json_data =
   (* Don't add version - it's inferred from filename *)
   let frontmatter = Yaml.to_string_exn json_data in
   match abstract with
-  | Some abs -> Printf.sprintf "---\n%s---\n\n%s\n" frontmatter abs
+  | Some abs -> 
+    (* Trim leading/trailing whitespace and normalize blank lines *)
+    let trimmed_abs = String.trim abs in
+    let normalized_abs = 
+      (* Replace 3+ consecutive newlines with exactly 2 newlines *)
+      Re.replace_string (Re.compile (Re.seq [Re.char '\n'; Re.char '\n'; Re.rep1 (Re.char '\n')])) ~by:"\n\n" trimmed_abs
+    in
+    if normalized_abs = "" then
+      Printf.sprintf "---\n%s---\n" frontmatter
+    else
+      Printf.sprintf "---\n%s---\n\n%s\n" frontmatter normalized_abs
   | None -> Printf.sprintf "---\n%s---\n" frontmatter
 
 (* TODO:claude *)

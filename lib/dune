@@ -14,4 +14,6 @@
   cohttp-lwt-unix
   fmt
   re
+  ptime.clock
+  ptime.clock.os
   typesense-client))

@@ -28,6 +28,9 @@ let paper_cmd =
 (* Paper classify command *)
 let paper_classify_cmd = Bushel_paper_classify.cmd
 
+(* Paper tex command *)
+let paper_tex_cmd = Bushel_paper_tex.cmd
+
 (* Thumbs command *)
 let thumbs_cmd =
   let doc = "Generate thumbnails from paper PDFs" in
@@ -72,6 +75,7 @@ let bushel_cmd =
     obsidian_cmd;
     paper_cmd;
     paper_classify_cmd;
+    paper_tex_cmd;
     query_cmd;
     thumbs_cmd;
     video_cmd;

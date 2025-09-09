@@ -50,3 +50,5 @@ type classification = Full | Short | Preprint
 val string_of_classification : classification -> string
 val classification_of_string : string -> classification
 val classification : t -> classification
+val selected : t -> bool
+val note : t -> string option
