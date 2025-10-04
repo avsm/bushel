@@ -49,6 +49,12 @@ let query_cmd =
   let info = Cmd.info "query" ~version ~doc in
   Cmd.v info Bushel_search.term
 
+(* Bibtex command *)
+let bibtex_cmd =
+  let doc = "Export bibtex for all papers" in
+  let info = Cmd.info "bibtex" ~version ~doc in
+  Cmd.v info Bushel_bibtex.term
+
 (* Main command *)
 let bushel_cmd =
   let doc = "Bushel content management toolkit" in
@@ -70,6 +76,7 @@ let bushel_cmd =
   ] in
   let info = Cmd.info "bushel" ~version ~doc ~sdocs ~man in
   Cmd.group info [
+    bibtex_cmd;
     faces_cmd;
     links_cmd;
     obsidian_cmd;
