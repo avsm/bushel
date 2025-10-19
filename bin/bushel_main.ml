@@ -55,6 +55,9 @@ let bibtex_cmd =
   let info = Cmd.info "bibtex" ~version ~doc in
   Cmd.v info Bushel_bibtex.term
 
+(* Ideas command *)
+let ideas_cmd = Bushel_ideas.cmd
+
 (* Main command *)
 let bushel_cmd =
   let doc = "Bushel content management toolkit" in
@@ -78,6 +81,7 @@ let bushel_cmd =
   Cmd.group info [
     bibtex_cmd;
     faces_cmd;
+    ideas_cmd;
     links_cmd;
     obsidian_cmd;
     paper_cmd;
