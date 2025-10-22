@@ -6,16 +6,17 @@ type t =
   ; github : string option
   ; twitter : string option
   ; url : string option
+  ; atom : string list option
   }
 
 type ts = t list
 
-let v ?email ?github ?twitter ?icon ?url handle names =
-  { names; handle; email; github; twitter; url; icon }
+let v ?email ?github ?twitter ?icon ?url ?atom handle names =
+  { names; handle; email; github; twitter; url; icon; atom }
 ;;
 
-let make names email icon github twitter url =
-  v ?email ?github ?twitter ?icon ?url "" names
+let make names email icon github twitter url atom =
+  v ?email ?github ?twitter ?icon ?url ?atom "" names
 ;;
 
 let names { names; _ } = names
@@ -26,6 +27,7 @@ let icon { icon; _ } = icon
 let github { github; _ } = github
 let twitter { twitter; _ } = twitter
 let url { url; _ } = url
+let atom { atom; _ } = atom
 
 let json_t =
   let open Jsont in
@@ -38,6 +40,7 @@ let json_t =
   |> mem_opt "github" (some string) ~enc:github
   |> mem_opt "twitter" (some string) ~enc:twitter
   |> mem_opt "url" (some string) ~enc:url
+  |> mem_opt "atom" (some (list string)) ~enc:atom
   |> finish
 ;;
 
@@ -112,5 +115,6 @@ let typesense_schema =
       [("name", string "github"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "twitter"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "url"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "atom"); ("type", string "string[]"); ("optional", bool true)];
     ]);
   ]

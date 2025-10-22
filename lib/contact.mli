@@ -10,6 +10,7 @@ val icon : t -> string option
 val github : t -> string option
 val twitter : t -> string option
 val url : t -> string option
+val atom : t -> string list option
 val best_url : t -> string option
 val find_by_handle : t list -> string -> t option
 val handle_of_name : string -> string

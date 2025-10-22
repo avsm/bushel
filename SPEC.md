@@ -294,6 +294,7 @@ Information about a person or organization.
 | `website` | String | Website URL | No | None |
 | `twitter` | String | Twitter/X handle | No | None |
 | `github` | String | GitHub username | No | None |
+| `atom` | List[String] | List of RSS/Atom feed URLs for the contact | No | None |
 
 **Note**: When displaying contacts in lists or user interfaces, implementations MUST use the first entry from the `names` array as the primary display name, not the `title` field. This ensures consistent display of contact names.
 
@@ -313,6 +314,9 @@ organization: Example Corp
 website: https://janedoe.com
 twitter: janedoe
 github: janedoe
+atom:
+  - https://janedoe.com/feed.xml
+  - https://janedoe.com/blog/rss
 tags:
   - colleague
   - expert
