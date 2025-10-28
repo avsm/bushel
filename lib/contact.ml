@@ -5,18 +5,20 @@ type t =
   ; icon : string option
   ; github : string option
   ; twitter : string option
+  ; bluesky : string option
+  ; mastodon : string option
   ; url : string option
   ; atom : string list option
   }
 
 type ts = t list
 
-let v ?email ?github ?twitter ?icon ?url ?atom handle names =
-  { names; handle; email; github; twitter; url; icon; atom }
+let v ?email ?github ?twitter ?bluesky ?mastodon ?icon ?url ?atom handle names =
+  { names; handle; email; github; twitter; bluesky; mastodon; url; icon; atom }
 ;;
 
-let make names email icon github twitter url atom =
-  v ?email ?github ?twitter ?icon ?url ?atom "" names
+let make names email icon github twitter bluesky mastodon url atom =
+  v ?email ?github ?twitter ?bluesky ?mastodon ?icon ?url ?atom "" names
 ;;
 
 let names { names; _ } = names
@@ -26,6 +28,8 @@ let email { email; _ } = email
 let icon { icon; _ } = icon
 let github { github; _ } = github
 let twitter { twitter; _ } = twitter
+let bluesky { bluesky; _ } = bluesky
+let mastodon { mastodon; _ } = mastodon
 let url { url; _ } = url
 let atom { atom; _ } = atom
 
@@ -39,6 +43,8 @@ let json_t =
   |> mem_opt "icon" (some string) ~enc:icon
   |> mem_opt "github" (some string) ~enc:github
   |> mem_opt "twitter" (some string) ~enc:twitter
+  |> mem_opt "bluesky" (some string) ~enc:bluesky
+  |> mem_opt "mastodon" (some string) ~enc:mastodon
   |> mem_opt "url" (some string) ~enc:url
   |> mem_opt "atom" (some (list string)) ~enc:atom
   |> finish
@@ -114,6 +120,8 @@ let typesense_schema =
       [("name", string "icon"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "github"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "twitter"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "bluesky"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "mastodon"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "url"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "atom"); ("type", string "string[]"); ("optional", bool true)];
     ]);

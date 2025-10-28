@@ -1,5 +1,18 @@
 (** Bushel mappers for our Markdown extensions and utilities *)
 
+(* Sidenote data types - reuse existing Bushel types *)
+type sidenote_data =
+  | Contact_note of Contact.t * string (* contact data + trigger text *)
+  | Paper_note of Paper.t * string
+  | Idea_note of Idea.t * string
+  | Note_note of Note.t * string
+  | Project_note of Project.t * string
+  | Video_note of Video.t * string
+  | Footnote_note of string * Cmarkit.Block.t * string
+    (* slug, block content, trigger text *)
+
+type Cmarkit.Inline.t += Side_note of sidenote_data
+
 let authorlink = Cmarkit.Meta.key ()
 
 let make_authorlink label =
@@ -37,6 +50,7 @@ let strip_handle s =
 (* FIXME use Tags *)
 let is_bushel_slug = String.starts_with ~prefix:":"
 let is_tag_slug = String.starts_with ~prefix:"##"
+let is_contact_slug = String.starts_with ~prefix:"@"
 
 let text_of_inline lb =
   let open Cmarkit in
@@ -60,6 +74,8 @@ let link_target_is_bushel ?slugs lb =
        let sh = strip_handle url in
        let uri = Uri.(make ~path:"/news" ~query:[ "t", [ sh ] ] () |> to_string) in
        Some (uri, Inline.Link.text lb |> text_of_inline)
+     | Some (url, _) when is_contact_slug url ->
+       Some (url, Inline.Link.text lb |> text_of_inline)
      | _ -> None)
   | _ -> None
 ;;
@@ -85,13 +101,47 @@ let image_target_is_bushel lb =
 
 let rewrite_bushel_link_reference entries slug title meta =
   let open Cmarkit in
-  let dest = Entry.lookup_site_url entries (strip_handle slug) in
-  let txt = Inline.Text (title, meta) in
-  let ld = Link_definition.make ~dest:(dest, meta) () in
-  let ll = `Inline (ld, meta) in
-  let ld = Inline.Link.make txt ll in
-  let ent_il = Inline.Link (ld, meta) in
-  Mapper.ret ent_il
+  let s = strip_handle slug in
+  (* Check if it's a contact (starts with @) or an entry *)
+  if is_contact_slug slug then
+    (* Contact sidenote *)
+    match Contact.find_by_handle (Entry.contacts entries) s with
+    | Some c ->
+        let sidenote = Side_note (Contact_note (c, title)) in
+        Mapper.ret sidenote
+    | None ->
+        (* Contact not found, fallback to regular link *)
+        let txt = Inline.Text (title, meta) in
+        let ld = Link_definition.make ~dest:("", meta) () in
+        let ll = `Inline (ld, meta) in
+        let ld = Inline.Link.make txt ll in
+        Mapper.ret (Inline.Link (ld, meta))
+  else
+    (* Check entry type and generate appropriate sidenote *)
+    match Entry.lookup entries s with
+    | Some (`Paper p) ->
+        let sidenote = Side_note (Paper_note (p, title)) in
+        Mapper.ret sidenote
+    | Some (`Idea i) ->
+        let sidenote = Side_note (Idea_note (i, title)) in
+        Mapper.ret sidenote
+    | Some (`Note n) ->
+        let sidenote = Side_note (Note_note (n, title)) in
+        Mapper.ret sidenote
+    | Some (`Project p) ->
+        let sidenote = Side_note (Project_note (p, title)) in
+        Mapper.ret sidenote
+    | Some (`Video v) ->
+        let sidenote = Side_note (Video_note (v, title)) in
+        Mapper.ret sidenote
+    | None ->
+        (* Entry not found, use regular link *)
+        let dest = Entry.lookup_site_url entries s in
+        let txt = Inline.Text (title, meta) in
+        let ld = Link_definition.make ~dest:(dest, meta) () in
+        let ll = `Inline (ld, meta) in
+        let ld = Inline.Link.make txt ll in
+        Mapper.ret (Inline.Link (ld, meta))
 ;;
 
 let rewrite_bushel_image_reference entries url title dir meta =
@@ -141,6 +191,107 @@ let rewrite_label_reference_to_obsidian lb meta =
           else Mapper.default))
 ;;
 
+let make_bushel_link_only_mapper _defs entries =
+  let open Cmarkit in
+  fun _m ->
+    function
+    | Inline.Link (lb, meta) ->
+      (* Convert Bushel link references to regular links (not sidenotes) *)
+      (match link_target_is_bushel lb with
+       | Some (url, title) ->
+         let s = strip_handle url in
+         let dest = Entry.lookup_site_url entries s in
+         let txt = Inline.Text (title, meta) in
+         let ld = Link_definition.make ~dest:(dest, meta) () in
+         let ll = `Inline (ld, meta) in
+         let ld = Inline.Link.make txt ll in
+         Mapper.ret (Inline.Link (ld, meta))
+       | None ->
+         (match Inline.Link.referenced_label lb with
+          | Some l ->
+            let m = Label.meta l in
+            (* Check for authorlink (contact) first *)
+            (match Meta.find authorlink m with
+             | Some () ->
+               let slug = Label.key l in
+               let s = strip_handle slug in
+               (match Contact.find_by_handle (Entry.contacts entries) s with
+                | Some c ->
+                  let name = Contact.name c in
+                  (match Contact.best_url c with
+                   | Some dest ->
+                     let txt = Inline.Text (name, meta) in
+                     let ld = Link_definition.make ~dest:(dest, meta) () in
+                     let ll = `Inline (ld, meta) in
+                     let ld = Inline.Link.make txt ll in
+                     Mapper.ret (Inline.Link (ld, meta))
+                   | None ->
+                     (* No URL for contact, just use name as text *)
+                     let txt = Inline.Text (name, meta) in
+                     Mapper.ret txt)
+                | None ->
+                  (* Contact not found, use title as fallback text *)
+                  let title = Inline.Link.text lb |> text_of_inline in
+                  let txt = Inline.Text (title, meta) in
+                  Mapper.ret txt)
+             | None ->
+               (* Check for sluglink *)
+               (match Meta.find sluglink m with
+                | Some () ->
+                  let slug = Label.key l in
+                  if is_bushel_slug slug || is_tag_slug slug || is_contact_slug slug
+                  then (
+                    let s = strip_handle slug in
+                    let dest = Entry.lookup_site_url entries s in
+                    let title = Inline.Link.text lb |> text_of_inline in
+                    let txt = Inline.Text (title, meta) in
+                    let ld = Link_definition.make ~dest:(dest, meta) () in
+                    let ll = `Inline (ld, meta) in
+                    let ld = Inline.Link.make txt ll in
+                    Mapper.ret (Inline.Link (ld, meta)))
+                  else Mapper.default
+                | None -> Mapper.default))
+          | None -> Mapper.default))
+    | _ -> Mapper.default
+;;
+
+let rewrite_footnote_reference ?footnote_map entries defs lb _meta =
+  let open Cmarkit in
+  match Inline.Link.referenced_label lb with
+  | None -> Mapper.default
+  | Some l ->
+    (match Inline.Link.reference_definition defs lb with
+     | Some (Block.Footnote.Def (fn, _)) ->
+       let label_key = Label.key l in
+       let slug, trigger_text =
+         match footnote_map with
+         | Some fm ->
+           (match Hashtbl.find_opt fm label_key with
+            | Some (slug, text) -> (slug, text)
+            | None ->
+              let num = Hashtbl.length fm + 1 in
+              let slug = Printf.sprintf "fn-%d" num in
+              let text = Printf.sprintf "[%d]" num in
+              Hashtbl.add fm label_key (slug, text);
+              (slug, text))
+         | None ->
+           (* No map provided, use label key as slug *)
+           let slug = Printf.sprintf "fn-%s" (String.sub label_key 1 (String.length label_key - 1)) in
+           let text = "[?]" in
+           (slug, text)
+       in
+       (* Process the block to convert Bushel link references to regular links (not sidenotes) *)
+       let block = Block.Footnote.block fn in
+       let link_mapper = Mapper.make ~inline:(make_bushel_link_only_mapper defs entries) () in
+       let processed_block =
+         match Mapper.map_block link_mapper block with
+         | Some b -> b
+         | None -> block
+       in
+       let sidenote = Side_note (Footnote_note (slug, processed_block, trigger_text)) in
+       Mapper.ret sidenote
+     | _ -> Mapper.default)
+
 let rewrite_label_reference ?slugs entries lb meta =
   let open Cmarkit in
   match Inline.Link.referenced_label lb with
@@ -150,22 +301,15 @@ let rewrite_label_reference ?slugs entries lb meta =
     (match Meta.find authorlink m with
      | Some () ->
        let slug = Label.key l in
-       let target, dest =
-         match Contact.find_by_handle (Entry.contacts entries) (strip_handle slug) with
-         | Some c ->
-           ( Contact.name c
-           , Printf.sprintf
-               "bushel:contact:%s:%s"
-               (strip_handle slug)
-               (Contact.best_url c |> Option.value ~default:"") )
-         | None -> "Unknown Person", ""
-       in
-       let txt = Inline.Text (target, meta) in
-       let ld = Link_definition.make ~dest:(dest, meta) () in
-       let ll = `Inline (ld, meta) in
-       let ld = Inline.Link.make txt ll in
-       let author_il = Inline.Link (ld, meta) in
-       Mapper.ret author_il
+       (match Contact.find_by_handle (Entry.contacts entries) (strip_handle slug) with
+        | Some c ->
+            let trigger_text = Contact.name c in
+            let sidenote = Side_note (Contact_note (c, trigger_text)) in
+            Mapper.ret sidenote
+        | None ->
+            (* Contact not found, fallback to text *)
+            let txt = Inline.Text ("Unknown Person", meta) in
+            Mapper.ret txt)
      | None ->
        (match Meta.find sluglink m with
         | None -> Mapper.default
@@ -176,16 +320,38 @@ let rewrite_label_reference ?slugs entries lb meta =
             (match slugs with
              | Some s -> Hashtbl.replace s slug ()
              | _ -> ());
-            let target, dest =
-              let s = strip_handle slug in
-              Entry.lookup_title entries s, Entry.lookup_site_url entries s
-            in
-            let txt = Inline.Text (target, meta) in
-            let ld = Link_definition.make ~dest:(dest, meta) () in
-            let ll = `Inline (ld, meta) in
-            let ld = Inline.Link.make txt ll in
-            let ent_il = Inline.Link (ld, meta) in
-            Mapper.ret ent_il)
+            let s = strip_handle slug in
+            (* Check entry type and generate appropriate sidenote *)
+            match Entry.lookup entries s with
+            | Some (`Paper p) ->
+                let trigger_text = Entry.lookup_title entries s in
+                let sidenote = Side_note (Paper_note (p, trigger_text)) in
+                Mapper.ret sidenote
+            | Some (`Idea i) ->
+                let trigger_text = Entry.lookup_title entries s in
+                let sidenote = Side_note (Idea_note (i, trigger_text)) in
+                Mapper.ret sidenote
+            | Some (`Note n) ->
+                let trigger_text = Entry.lookup_title entries s in
+                let sidenote = Side_note (Note_note (n, trigger_text)) in
+                Mapper.ret sidenote
+            | Some (`Project p) ->
+                let trigger_text = Entry.lookup_title entries s in
+                let sidenote = Side_note (Project_note (p, trigger_text)) in
+                Mapper.ret sidenote
+            | Some (`Video v) ->
+                let trigger_text = Entry.lookup_title entries s in
+                let sidenote = Side_note (Video_note (v, trigger_text)) in
+                Mapper.ret sidenote
+            | None ->
+                (* Entry not found, use regular link *)
+                let target = Entry.lookup_title entries s in
+                let dest = Entry.lookup_site_url entries s in
+                let txt = Inline.Text (target, meta) in
+                let ld = Link_definition.make ~dest:(dest, meta) () in
+                let ll = `Inline (ld, meta) in
+                let ld = Inline.Link.make txt ll in
+                Mapper.ret (Inline.Link (ld, meta)))
           else if is_tag_slug slug
           then (
             let sh = strip_handle slug in
@@ -215,26 +381,35 @@ let bushel_inline_mapper_to_obsidian entries _m =
   | _ -> Mapper.default
 ;;
 
-let bushel_inline_mapper ?slugs entries _m =
+let make_bushel_inline_mapper ?slugs ?footnote_map defs entries =
   let open Cmarkit in
-  function
-  | Inline.Link (lb, meta) ->
-    (match link_target_is_bushel ?slugs lb with
-     | None -> rewrite_label_reference ?slugs entries lb meta
-     | Some (url, title) -> rewrite_bushel_link_reference entries url title meta)
-  | Inline.Image (lb, meta) ->
-    (match image_target_is_bushel lb with
-     | None -> rewrite_label_reference entries lb meta
-     | Some (url, alt, dir) -> rewrite_bushel_image_reference entries url alt dir meta)
-  | _ -> Mapper.default
+  fun _m ->
+    function
+    | Inline.Link (lb, meta) ->
+      (* First check if this is a footnote reference *)
+      (match Inline.Link.referenced_label lb with
+       | Some l when String.starts_with ~prefix:"^" (Label.key l) ->
+         (* This is a footnote reference *)
+         rewrite_footnote_reference ?footnote_map entries defs lb meta
+       | _ ->
+         (* Not a footnote, handle as bushel link *)
+         (match link_target_is_bushel ?slugs lb with
+          | None -> rewrite_label_reference ?slugs entries lb meta
+          | Some (url, title) -> rewrite_bushel_link_reference entries url title meta))
+    | Inline.Image (lb, meta) ->
+      (match image_target_is_bushel lb with
+       | None -> rewrite_label_reference entries lb meta
+       | Some (url, alt, dir) -> rewrite_bushel_image_reference entries url alt dir meta)
+    | _ -> Mapper.default
 ;;
 
 let scan_for_slugs entries md =
   let open Cmarkit in
   let slugs = Hashtbl.create 7 in
+  let doc = Doc.of_string ~strict:false ~resolver:with_bushel_links md in
+  let defs = Doc.defs doc in
   let _ =
-    Doc.of_string ~strict:false ~resolver:with_bushel_links md
-    |> Mapper.map_doc (Mapper.make ~inline:(bushel_inline_mapper ~slugs entries) ())
+    Mapper.map_doc (Mapper.make ~inline:(make_bushel_inline_mapper ~slugs defs entries) ()) doc
   in
   Hashtbl.fold (fun k () a -> k :: a) slugs []
 ;;

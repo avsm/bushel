@@ -72,25 +72,37 @@ let download_thumbnail base_url api_key person_id output_path =
     Lwt.return_error (Printf.sprintf "HTTP error: %d" status_code)
 
 (* Get face for a single contact *)
+(* TODO:claude *)
 let get_face_for_contact base_url api_key output_dir contact =
-  let name = Bushel.Contact.name contact in
+  let names = Bushel.Contact.names contact in
   let handle = Bushel.Contact.handle contact in
   let output_path = Filename.concat output_dir (handle ^ ".jpg") in
-  
+
   (* Skip if file already exists *)
   if Sys.file_exists output_path then
-    Lwt.return (`Skipped (sprintf "Thumbnail for '%s' already exists at %s" name output_path))
+    Lwt.return (`Skipped (sprintf "Thumbnail for '%s' already exists at %s" (List.hd names) output_path))
   else begin
-    printf "Processing contact: %s (handle: %s)\n%!" name handle;
-    search_person base_url api_key name >>= function
-    | [] -> 
-        Lwt.return (`Error (sprintf "No person found with name '%s'" name))
-    | person :: _ ->
-        download_thumbnail base_url api_key person.id output_path >>= function
-        | Ok path -> 
-            Lwt.return (`Ok (sprintf "Saved thumbnail for '%s' to %s" name path))
-        | Error err -> 
-            Lwt.return (`Error (sprintf "Error for '%s': %s" name err))
+    printf "Processing contact: %s (handle: %s)\n%!" (List.hd names) handle;
+
+    (* Try each name in the list until we find a match *)
+    let rec try_names = function
+      | [] ->
+          Lwt.return (`Error (sprintf "No person found with any name for contact '%s'" handle))
+      | name :: rest_names ->
+          printf "  Trying name: %s\n%!" name;
+          search_person base_url api_key name >>= function
+          | [] ->
+              printf "  No results for '%s', trying next name...\n%!" name;
+              try_names rest_names
+          | person :: _ ->
+              printf "  Found match for '%s'\n%!" name;
+              download_thumbnail base_url api_key person.id output_path >>= function
+              | Ok path ->
+                  Lwt.return (`Ok (sprintf "Saved thumbnail for '%s' to %s" name path))
+              | Error err ->
+                  Lwt.return (`Error (sprintf "Error for '%s': %s" name err))
+    in
+    try_names names
   end
 
 (* Process all contacts or a specific one *)

@@ -19,12 +19,8 @@ let data_dir =
   let doc = "Directory containing bushel data files" in
   Arg.(value & opt string "." & info ["data-dir"; "d"] ~doc)
 
-let overwrite =
-  let doc = "Overwrite existing collections" in
-  Arg.(value & flag & info ["overwrite"; "o"] ~doc)
-
 (** TODO:claude Main upload function *)
-let upload endpoint api_key openai_key data_dir overwrite =
+let upload endpoint api_key openai_key data_dir =
   if api_key = "" then (
     Printf.eprintf "Error: API key is required. Use --api-key or set TYPESENSE_API_KEY environment variable.\n";
     exit 1
@@ -36,11 +32,10 @@ let upload endpoint api_key openai_key data_dir overwrite =
   );
   
   let config = Bushel.Typesense.{ endpoint; api_key; openai_key } in
-  
+
   Printf.printf "Uploading bushel data to Typesense at %s\n" endpoint;
   Printf.printf "Data directory: %s\n" data_dir;
-  Printf.printf "Overwrite mode: %b\n" overwrite;
-  
+
   Lwt_main.run (
     Lwt.catch (fun () ->
       Bushel.Typesense.upload_all config data_dir
@@ -200,7 +195,7 @@ let upload_cmd =
     `Pre "  bushel-typesense upload --endpoint https://search.example.com --api-key xyz123 --openai-key sk-abc...";
   ] in
   let info = Cmd.info "upload" ~doc ~man in
-  Cmd.v info Term.(const upload $ endpoint $ api_key $ openai_key $ data_dir $ overwrite)
+  Cmd.v info Term.(const upload $ endpoint $ api_key $ openai_key $ data_dir)
 
 (** TODO:claude Main command group *)
 let main_cmd =
@@ -226,10 +221,10 @@ let () =
       | Some oa_key when oa_key <> "" -> Arg.(value & opt string oa_key & info ["openai-key"; "oa"] ~doc:"OpenAI API key")
       | _ -> openai_key
     in
-    let upload_cmd = 
+    let upload_cmd =
       let doc = "Upload bushel collections to Typesense search engine" in
       let info = Cmd.info "upload" ~doc in
-      Cmd.v info Term.(const upload $ endpoint $ api_key $ openai_key $ data_dir $ overwrite)
+      Cmd.v info Term.(const upload $ endpoint $ api_key $ openai_key $ data_dir)
     in
     let query_cmd =
       let doc = "Search bushel collections in Typesense" in
