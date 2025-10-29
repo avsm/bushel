@@ -7,6 +7,13 @@ val make_bushel_inline_mapper
   -> Cmarkit.Inline.t
   -> Cmarkit.Inline.t Cmarkit.Mapper.result
 
+val make_bushel_link_only_mapper
+  :  Cmarkit.Label.defs
+  -> Entry.t
+  -> 'a
+  -> Cmarkit.Inline.t
+  -> Cmarkit.Inline.t Cmarkit.Mapper.result
+
 type Cmarkit.Inline.t += Obsidian_link of string
 
 type sidenote_data =
