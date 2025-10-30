@@ -25,20 +25,22 @@ let upload endpoint api_key openai_key data_dir =
     Printf.eprintf "Error: API key is required. Use --api-key or set TYPESENSE_API_KEY environment variable.\n";
     exit 1
   );
-  
+
   if openai_key = "" then (
     Printf.eprintf "Error: OpenAI API key is required for embeddings. Use --openai-key or set OPENAI_API_KEY environment variable.\n";
     exit 1
   );
-  
+
   let config = Bushel.Typesense.{ endpoint; api_key; openai_key } in
 
+  Printf.printf "Loading bushel data from %s\n" data_dir;
+  let entries = Bushel.load data_dir in
+
   Printf.printf "Uploading bushel data to Typesense at %s\n" endpoint;
-  Printf.printf "Data directory: %s\n" data_dir;
 
   Lwt_main.run (
     Lwt.catch (fun () ->
-      Bushel.Typesense.upload_all config data_dir
+      Bushel.Typesense.upload_all config entries
     ) (fun exn ->
       Printf.eprintf "Error: %s\n" (Printexc.to_string exn);
       exit 1

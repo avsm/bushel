@@ -272,7 +272,6 @@ let note_to_document entries (note : Note.t) =
     ("tags", list string (Note.tags note));
     ("draft", bool (Note.draft note));
     ("synopsis", list string (safe_string_list_from_opt (Note.synopsis note)));
-    ("titleimage", option string (Note.titleimage note));
     ("thumbnail_url", string (Option.value ~default:"" thumbnail_url));
   ]
 
@@ -304,42 +303,6 @@ let idea_to_document entries (idea : Idea.t) =
     ("thumbnail_url", string (Option.value ~default:"" thumbnail_url));
   ]
 
-(** TODO:claude Load bushel data from directory *)
-let load_bushel_data data_dir =
-  let map_md base subdir fn =
-    let dir = base ^ "/data/" ^ subdir in
-    Sys.readdir dir
-    |> Array.to_list
-    |> List.filter (fun f -> Filename.check_suffix f ".md")
-    |> List.map (fun e -> fn dir e)
-  in
-  let map_category base c fn = map_md base c (fun dir e -> fn @@ Filename.concat dir e) in
-  
-  let load_contacts base = map_category base "contacts" Contact.of_md in
-  let load_projects base = map_category base "projects" Project.of_md in
-  let load_notes base = map_category base "notes" Note.of_md in
-  let load_news base = map_category base "news" News.of_md in
-  let load_ideas base = map_category base "ideas" Idea.of_md in
-  let load_videos base = map_category base "videos" Video.of_md in
-  
-  let load_papers base =
-    Sys.readdir (base ^ "/data/papers")
-    |> Array.to_list
-    |> List.filter (fun slug -> Sys.is_directory (base ^ "/data/papers/" ^ slug))
-    |> List.map (fun slug ->
-      Sys.readdir (base ^ "/data/papers/" ^ slug)
-      |> Array.to_list
-      |> List.filter (fun ver -> Filename.check_suffix ver ".md")
-      |> List.map (fun ver ->
-        let ver = Filename.chop_extension ver in
-        Paper.of_md ~slug ~ver (base ^ "/data/papers/" ^ slug ^ "/" ^ ver ^ ".md")))
-    |> List.flatten
-    |> Paper.tv
-  in
-  
-  (load_contacts data_dir, load_papers data_dir, load_projects data_dir,
-   load_news data_dir, load_videos data_dir, load_notes data_dir, load_ideas data_dir)
-
 (** TODO:claude Helper function to add embedding field to schema *)
 let add_embedding_field_to_schema schema config embedding_from_fields =
   let open Ezjsonm in
@@ -365,13 +328,16 @@ let add_embedding_field_to_schema schema config embedding_from_fields =
   dict updated_schema
 
 (** TODO:claude Upload all bushel objects to their respective collections *)
-let upload_all config data_dir =
-  let* () = Lwt_io.write Lwt_io.stdout (Fmt.str "Loading bushel data from %s\n" data_dir) in
+let upload_all config entries =
+  let* () = Lwt_io.write Lwt_io.stdout "Uploading bushel data to Typesense\n" in
 
-  let (contacts, papers, projects, news, videos, notes, ideas) = load_bushel_data data_dir in
-
-  (* Create entries object for resolving bushel links *)
-  let entries = Entry.v ~contacts ~papers ~projects ~news ~videos ~notes ~ideas ~images:[] ~data_dir:(data_dir ^ "/data") in
+  let contacts = Entry.contacts entries in
+  let papers = Entry.papers entries in
+  let projects = Entry.projects entries in
+  let notes = Entry.notes entries in
+  let videos = Entry.videos entries in
+  let ideas = Entry.ideas entries in
+  let news = Entry.news entries in
 
   let collections = [
     ("contacts", add_embedding_field_to_schema Contact.typesense_schema config ["name"; "names"], (List.map contact_to_document contacts : Ezjsonm.value list));

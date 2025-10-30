@@ -115,7 +115,7 @@ let typesense_schema =
       [("name", string "body"); ("type", string "string"); ("optional", bool true)];
       [("name", string "draft"); ("type", string "bool")];
       [("name", string "synopsis"); ("type", string "string[]"); ("optional", bool true)];
-      [("name", string "titleimage"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "thumbnail_url"); ("type", string "string"); ("optional", bool true)];
       [("name", string "type"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
       [("name", string "status"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
       [("name", string "related_papers"); ("type", string "string[]"); ("optional", bool true)];

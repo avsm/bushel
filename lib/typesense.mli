@@ -47,14 +47,14 @@ val delete_collection : config -> string -> (string, error) result Lwt.t
     TODO:claude *)
 val upload_documents : config -> string -> Ezjsonm.value list -> (string, error) result Lwt.t
 
-(** Upload all bushel objects from a data directory to Typesense.
+(** Upload all bushel objects to Typesense.
     This function will:
-    - Load all bushel data types from the specified directory
+    - Extract all bushel data types from the Entry.t
     - Create or recreate collections for each type
     - Upload all documents in batches
     - Report progress to stdout
     TODO:claude *)
-val upload_all : config -> string -> unit Lwt.t
+val upload_all : config -> Entry.t -> unit Lwt.t
 
 (** Search result structure containing document information and relevance score *)
 type search_result = {

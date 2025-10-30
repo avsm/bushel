@@ -34,6 +34,7 @@ let papers { papers; _ } = papers
 let notes { notes; _ } = notes
 let projects { projects; _ } = projects
 let images { images; _ } = images
+let news { news; _ } = news
 let data_dir { data_dir; _ } = data_dir
 
 let v ~papers ~notes ~projects ~ideas ~videos ~news ~contacts ~images ~data_dir =
@@ -273,6 +274,29 @@ let extract_first_image md =
 let lookup_image { images; _ } slug =
   List.find_opt (fun img -> Srcsetter.slug img = slug) images
 
+(** Get the smallest webp variant from a srcsetter image *)
+let smallest_webp_variant img =
+  let variants = Srcsetter.variants img in
+  let webp_variants =
+    Srcsetter.MS.bindings variants
+    |> List.filter (fun (name, _) -> String.ends_with ~suffix:".webp" name)
+  in
+  match webp_variants with
+  | [] ->
+    (* No webp variants, fall back to origin *)
+    "/images/" ^ Srcsetter.origin img
+  | variants ->
+    (* Find the variant with the smallest width *)
+    let smallest = List.fold_left (fun acc (name, (w, h)) ->
+      match acc with
+      | None -> Some (name, w, h)
+      | Some (_, min_w, _) when w < min_w -> Some (name, w, h)
+      | _ -> acc
+    ) None variants in
+    match smallest with
+    | Some (name, _, _) -> "/images/" ^ name
+    | None -> "/images/" ^ Srcsetter.origin img
+
 (** Get thumbnail slug for a contact *)
 let contact_thumbnail_slug contact =
   (* Contact images use just the handle as slug *)
@@ -284,11 +308,8 @@ let contact_thumbnail entries contact =
   | None -> None
   | Some thumb_slug ->
     match lookup_image entries thumb_slug with
-    | Some img -> Some (Srcsetter.origin img)
-    | None ->
-      (* Error: all images must be in srcsetter *)
-      failwith (Printf.sprintf "Contact thumbnail image not in srcsetter: %s (for contact: @%s)"
-        thumb_slug (Contact.handle contact))
+    | Some img -> Some (smallest_webp_variant img)
+    | None -> None (* Image not in srcsetter - thumbnails are optional *)
 
 (** Get thumbnail slug for an entry with fallbacks *)
 let rec thumbnail_slug entries = function
@@ -365,12 +386,8 @@ let thumbnail entries entry =
   | None -> None
   | Some thumb_slug ->
     match lookup_image entries thumb_slug with
-    | Some img -> Some (Srcsetter.origin img)
-    | None ->
-      (* Error: all images must be in srcsetter *)
-      let entry_slug = slug entry in
-      failwith (Printf.sprintf "Thumbnail image not in srcsetter: %s (for entry: %s)"
-        thumb_slug entry_slug)
+    | Some img -> Some (smallest_webp_variant img)
+    | None -> None (* Image not in srcsetter - thumbnails are optional *)
 
 (** Get thumbnail URL for a news entry *)
 let thumbnail_news entries news_item =

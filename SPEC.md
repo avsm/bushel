@@ -104,7 +104,7 @@ A basic text note for capturing general information.
 | `draft` | Boolean | Whether the note is a draft | No | False |
 | `index_page` | Boolean | Whether the note is an index page | No | False |
 | `synopsis` | String | Brief summary of the note | No | None |
-| `titleimage` | String | Image to display with the title | No | None |
+| `titleimage` | String | Image slug to override the default first image extraction for thumbnails | No | None |
 | `via` | Object | Reference to external source | No | None |
 | `sidebar` | String | Optional sidebar content | No | None |
 

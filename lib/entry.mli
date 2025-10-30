@@ -16,6 +16,7 @@ val papers : t -> Paper.ts
 val notes : t -> Note.ts
 val projects : t -> Project.ts
 val images : t -> Srcsetter.ts
+val news : t -> News.ts
 val data_dir : t -> string
 
 val v
@@ -72,6 +73,9 @@ val compare : entry -> entry -> int
 
 (** Look up an image in the srcsetter list by slug *)
 val lookup_image : t -> string -> Srcsetter.t option
+
+(** Get the smallest webp variant from a srcsetter image *)
+val smallest_webp_variant : Srcsetter.t -> string
 
 (** Get thumbnail slug for a contact *)
 val contact_thumbnail_slug : Contact.t -> string option
