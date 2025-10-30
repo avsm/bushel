@@ -156,3 +156,36 @@ let to_bushel_video video =
   let description = Option.value ~default:"" video.description in
   let published_date = video.originally_published_at |> Option.value ~default:video.published_at in
   (description, published_date, video.name, video.url, video.uuid, string_of_int video.id)
+
+(** Get the thumbnail URL for a video *)
+let thumbnail_url base_url video =
+  match video.thumbnail_path with
+  | Some path -> Some (base_url ^ path)
+  | None -> None
+
+(** Download a thumbnail to a file
+    @param base_url Base URL of the PeerTube instance
+    @param video The video to download the thumbnail for
+    @param output_path Path where to save the thumbnail
+    @return A Lwt promise with unit on success *)
+let download_thumbnail base_url video output_path =
+  match thumbnail_url base_url video with
+  | None ->
+      Lwt.return (Error (`Msg (Printf.sprintf "No thumbnail available for video %s" video.uuid)))
+  | Some url ->
+      let open Cohttp_lwt_unix in
+      Client.get (Uri.of_string url) >>= fun (resp, body) ->
+      if resp.status = `OK then
+        Cohttp_lwt.Body.to_string body >>= fun body_str ->
+        Lwt.catch
+          (fun () ->
+            let oc = open_out_bin output_path in
+            output_string oc body_str;
+            close_out oc;
+            Lwt.return (Ok ()))
+          (fun exn ->
+            Lwt.return (Error (`Msg (Printf.sprintf "Failed to write thumbnail: %s"
+              (Printexc.to_string exn)))))
+      else
+        let status_code = Cohttp.Code.code_of_status resp.status in
+        Lwt.return (Error (`Msg (Printf.sprintf "HTTP error downloading thumbnail: %d" status_code)))

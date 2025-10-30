@@ -9,19 +9,38 @@ let setup_log style_renderer level =
   Logs.set_reporter (Logs_fmt.reporter ());
   ()
 
-let process_videos output_dir overwrite base_url channel =
+let process_videos output_dir overwrite base_url channel fetch_thumbs thumbs_dir =
   Peertube.fetch_all_channel_videos base_url channel >>= fun all_videos ->
   Logs.info (fun f -> f "Total videos: %d" (List.length all_videos));
-  
+
+  (* Create thumbnails directory if needed *)
+  (if fetch_thumbs && not (Sys.file_exists thumbs_dir) then
+    Unix.mkdir thumbs_dir 0o755);
+
   (* Process each video, fetching full details for complete descriptions *)
   Lwt_list.map_s (fun video ->
     (* Fetch complete video details to get full description *)
     Peertube.fetch_video_details base_url video.Peertube.uuid >>= fun full_video ->
-    let (description, published_date, title, url, uuid, slug) = 
-      Peertube.to_bushel_video full_video 
+    let (description, published_date, title, url, uuid, slug) =
+      Peertube.to_bushel_video full_video
     in
     Logs.info (fun f -> f "Title: %s, URL: %s" title url);
-    Lwt.return {Bushel.Video.description; published_date; title; url; uuid; slug; 
+
+    (* Download thumbnail if requested *)
+    (if fetch_thumbs then
+      let thumb_path = Filename.concat thumbs_dir (uuid ^ ".jpg") in
+      Peertube.download_thumbnail base_url full_video thumb_path >>= fun result ->
+      match result with
+      | Ok () ->
+          Logs.info (fun f -> f "Downloaded thumbnail for %s to %s" title thumb_path);
+          Lwt.return_unit
+      | Error (`Msg e) ->
+          Logs.warn (fun f -> f "Failed to download thumbnail for %s: %s" title e);
+          Lwt.return_unit
+    else
+      Lwt.return_unit) >>= fun () ->
+
+    Lwt.return {Bushel.Video.description; published_date; title; url; uuid; slug;
                 talk=false; paper=None; project=None; tags=full_video.tags}
   ) all_videos >>= fun vids ->
   
@@ -93,11 +112,22 @@ let process_videos output_dir overwrite base_url channel =
 
 (* Export the term for use in main bushel.ml *)
 let term =
-  Term.(const (fun output_dir overwrite base_url channel () -> 
-    Lwt_main.run (process_videos output_dir overwrite base_url channel); 0) 
-    $ Bushel_common.output_dir ~default:"." $ Bushel_common.overwrite $ 
-    Bushel_common.url_term ~default:"https://crank.recoil.org" ~doc:"PeerTube base URL" $ 
-    Bushel_common.channel ~default:"anil" $ 
+  let fetch_thumbs =
+    let doc = "Download video thumbnails" in
+    Arg.(value & flag & info ["fetch-thumbs"] ~doc)
+  in
+  let thumbs_dir =
+    let doc = "Directory to save thumbnails (default: images/videos)" in
+    Arg.(value & opt string "images/videos" & info ["thumbs-dir"] ~docv:"DIR" ~doc)
+  in
+  Term.(const (fun output_dir overwrite base_url channel fetch_thumbs thumbs_dir () ->
+    Lwt_main.run (process_videos output_dir overwrite base_url channel fetch_thumbs thumbs_dir); 0)
+    $ Bushel_common.output_dir ~default:"." $
+    Bushel_common.overwrite $
+    Bushel_common.url_term ~default:"https://crank.recoil.org" ~doc:"PeerTube base URL" $
+    Bushel_common.channel ~default:"anil" $
+    fetch_thumbs $
+    thumbs_dir $
     Bushel_common.setup_term)
 
 let cmd =

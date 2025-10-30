@@ -26,6 +26,7 @@ val v
   -> news:News.ts
   -> contacts:Contact.ts
   -> images:Srcsetter.ts
+  -> data_dir:string
   -> t
 
 val lookup : t -> string -> entry option
@@ -67,3 +68,9 @@ val news_for_tag : t -> string -> News.t list
 val all_entries : t -> entry list
 val all_papers : t -> entry list
 val compare : entry -> entry -> int
+
+(** Get thumbnail URL for an entry with fallbacks *)
+val thumbnail : t -> entry -> string option
+
+(** Get thumbnail URL for a news entry *)
+val thumbnail_news : t -> News.t -> string option

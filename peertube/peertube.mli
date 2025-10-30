@@ -46,6 +46,17 @@ val fetch_all_channel_videos : ?page_size:int -> ?max_pages:int -> string -> str
     @param uuid UUID of the video to fetch *)
 val fetch_video_details : string -> string -> video Lwt.t
 
-(** Convert a PeerTube video to Bushel.Video.t compatible structure 
+(** Convert a PeerTube video to Bushel.Video.t compatible structure
     Returns (description, published_date, title, url, uuid, slug) *)
 val to_bushel_video : video -> string * Ptime.t * string * string * string * string
+
+(** Get the thumbnail URL for a video
+    @param base_url Base URL of the PeerTube instance
+    @param video The video to get the thumbnail URL for *)
+val thumbnail_url : string -> video -> string option
+
+(** Download a thumbnail to a file
+    @param base_url Base URL of the PeerTube instance
+    @param video The video to download the thumbnail for
+    @param output_path Path where to save the thumbnail *)
+val download_thumbnail : string -> video -> string -> (unit, [> `Msg of string]) result Lwt.t

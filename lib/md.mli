@@ -41,6 +41,11 @@ val with_bushel_links
 
 val scan_for_slugs : Entry.t -> string -> string list
 
+(** Extract the first image URL from markdown text *)
+val extract_first_image : string -> string option
+
+(** Convert markdown text to plain text, resolving bushel links to just their text *)
+val markdown_to_plaintext : 'a -> string -> string
 
 val is_bushel_slug : string -> bool
 val is_tag_slug : string -> bool

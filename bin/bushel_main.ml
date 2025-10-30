@@ -43,6 +43,9 @@ let video_cmd =
   let info = Cmd.info "video" ~version ~doc in
   Cmd.v info Bushel_video.term
 
+(* Video thumbs command *)
+let video_thumbs_cmd = Bushel_video_thumbs.cmd
+
 (* Query command *)
 let query_cmd =
   let doc = "Query Bushel collections using multisearch" in
@@ -90,6 +93,7 @@ let bushel_cmd =
     query_cmd;
     thumbs_cmd;
     video_cmd;
+    video_thumbs_cmd;
   ]
 
 let () = exit (Cmd.eval' bushel_cmd)

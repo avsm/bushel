@@ -84,6 +84,18 @@ let date_to_timestamp (year, month, day) =
   | Some ptime -> ptime_to_timestamp ptime
   | None -> 0L
 
+(** Resolve author handles to full names in a list *)
+let resolve_author_list contacts authors =
+  List.map (fun author ->
+    if String.length author > 0 && author.[0] = '@' then
+      let handle = String.sub author 1 (String.length author - 1) in
+      match Contact.find_by_handle contacts handle with
+      | Some contact -> Contact.name contact
+      | None -> author (* Keep original if not found *)
+    else
+      author
+  ) authors
+
 let contact_to_document (contact : Contact.t) =
   let open Ezjsonm in
   let safe_string_list_from_opt = function
@@ -102,9 +114,10 @@ let contact_to_document (contact : Contact.t) =
     ("url", list string (safe_string_list_from_opt (Contact.url contact)));
   ]
 
-let paper_to_document (paper : Paper.t) =
+let paper_to_document entries (paper : Paper.t) =
   let date_tuple = Paper.date paper in
-  
+  let contacts = Entry.contacts entries in
+
   (* Helper to extract string arrays from JSON, handling both single strings and arrays *)
   let extract_string_array_from_json json_field_name =
     try
@@ -117,12 +130,43 @@ let paper_to_document (paper : Paper.t) =
       | _ -> []
     with _ -> []
   in
-  
+
+  (* Resolve author handles to full names *)
+  let authors = resolve_author_list contacts (Paper.authors paper) in
+
+  (* Convert abstract markdown to plain text *)
+  let abstract = Md.markdown_to_plaintext entries (Paper.abstract paper) in
+
+  (* Extract publication metadata *)
+  let bibtype = Paper.bibtype paper in
+  let metadata =
+    try
+      match bibtype with
+      | "article" -> Printf.sprintf "Journal: %s" (Paper.journal paper)
+      | "inproceedings" -> Printf.sprintf "Proceedings: %s" (Paper.journal paper)
+      | "misc" | "techreport" -> Printf.sprintf "Preprint: %s" (Paper.journal paper)
+      | _ -> Printf.sprintf "%s: %s" (String.capitalize_ascii bibtype) (Paper.journal paper)
+    with _ -> bibtype
+  in
+
+  (* Get bibtex from raw JSON *)
+  let bibtex =
+    try
+      let paper_json = Paper.raw_json paper in
+      Ezjsonm.get_dict paper_json
+      |> List.assoc "bibtex"
+      |> Ezjsonm.get_string
+    with _ -> ""
+  in
+
+  let thumbnail_url = Entry.thumbnail entries (`Paper paper) in
   Ezjsonm.dict [
     ("id", Ezjsonm.string (Paper.slug paper));
     ("title", Ezjsonm.string (Paper.title paper));
-    ("authors", Ezjsonm.list Ezjsonm.string (Paper.authors paper));
-    ("abstract", Ezjsonm.string (Paper.abstract paper));
+    ("authors", Ezjsonm.list Ezjsonm.string authors);
+    ("abstract", Ezjsonm.string abstract);
+    ("metadata", Ezjsonm.string metadata);
+    ("bibtex", Ezjsonm.string bibtex);
     ("date", Ezjsonm.string (let y, m, d = date_tuple in Printf.sprintf "%04d-%02d-%02d" y m d));
     ("date_timestamp", Ezjsonm.int64 (date_to_timestamp date_tuple));
     ("tags", Ezjsonm.list Ezjsonm.string (Paper.tags paper));
@@ -130,93 +174,129 @@ let paper_to_document (paper : Paper.t) =
     ("pdf_url", Ezjsonm.list Ezjsonm.string (extract_string_array_from_json "pdf_url"));
     ("journal", Ezjsonm.list Ezjsonm.string (extract_string_array_from_json "journal"));
     ("related_projects", Ezjsonm.list Ezjsonm.string (Paper.project_slugs paper));
+    ("thumbnail_url", Ezjsonm.option Ezjsonm.string thumbnail_url);
   ]
 
-let project_to_document (project : Project.t) =
+let project_to_document entries (project : Project.t) =
   let open Ezjsonm in
   (* Use January 1st of start year as the date for sorting *)
   let date_timestamp = date_to_timestamp (project.start, 1, 1) in
+
+  (* Convert body markdown to plain text *)
+  let description = Md.markdown_to_plaintext entries (Project.body project) in
+
+  let thumbnail_url = Entry.thumbnail entries (`Project project) in
   dict [
     ("id", string project.slug);
     ("title", string (Project.title project));
-    ("description", string (Project.body project));  (* Use body as description *)
+    ("description", string description);
+    ("start", int project.start);
+    ("finish", option int project.finish);
     ("start_year", int project.start);
-    (* Skip finish_year for now due to type issues *)
     ("date", string (Printf.sprintf "%04d-01-01" project.start));
     ("date_timestamp", int64 date_timestamp);
     ("tags", list string (Project.tags project));
+    ("thumbnail_url", option string thumbnail_url);
   ]
 
-let news_to_document (news : News.t) =
+let news_to_document entries (news : News.t) =
   let open Ezjsonm in
   let datetime = News.datetime news in
+
+  (* Convert body markdown to plain text *)
+  let content = Md.markdown_to_plaintext entries (News.body news) in
+
+  let thumbnail_url = Entry.thumbnail_news entries news in
   dict [
     ("id", string (News.slug news));
     ("title", string (News.title news));
-    ("content", string (News.body news));  (* Use body as content *)
+    ("content", string content);
     ("date", string (Ptime.to_rfc3339 datetime));
     ("date_timestamp", int64 (ptime_to_timestamp datetime));
     ("tags", list string (News.tags news));
     ("url", string (News.site_url news));
+    ("thumbnail_url", option string thumbnail_url);
   ]
 
-let video_to_document (video : Video.t) =
+let video_to_document entries (video : Video.t) =
   let open Ezjsonm in
   let datetime = Video.datetime video in
   let safe_string_list_from_opt = function
     | Some s -> [s]
     | None -> []
   in
+
+  (* Convert body markdown to plain text *)
+  let description = Md.markdown_to_plaintext entries (Video.body video) in
+
+  let thumbnail_url = Entry.thumbnail entries (`Video video) in
   dict [
     ("id", string (Video.slug video));
     ("title", string (Video.title video));
-    ("description", string (Video.body video));
+    ("description", string description);
     ("published_date", string (Ptime.to_rfc3339 datetime));
     ("date", string (Ptime.to_rfc3339 datetime));
     ("date_timestamp", int64 (ptime_to_timestamp datetime));
     ("url", string (Video.url video));
     ("uuid", string (Video.uuid video));
-    ("is_talk", bool (Video.talk video));
+    ("talk", bool (Video.talk video));
     ("paper", list string (safe_string_list_from_opt (Video.paper video)));
     ("project", list string (safe_string_list_from_opt (Video.project video)));
     ("tags", list string video.tags);
+    ("thumbnail_url", option string thumbnail_url);
   ]
 
-let note_to_document (note : Note.t) =
+let note_to_document entries (note : Note.t) =
   let open Ezjsonm in
   let datetime = Note.datetime note in
   let safe_string_list_from_opt = function
     | Some s -> [s]
     | None -> []
   in
+
+  (* Convert body markdown to plain text *)
+  let content = Md.markdown_to_plaintext entries (Note.body note) in
+
+  let thumbnail_url = Entry.thumbnail entries (`Note note) in
   dict [
     ("id", string (Note.slug note));
     ("title", string (Note.title note));
     ("date", string (Ptime.to_rfc3339 datetime));
     ("date_timestamp", int64 (ptime_to_timestamp datetime));
-    ("content", string (Note.body note));
+    ("content", string content);
     ("tags", list string (Note.tags note));
     ("draft", bool (Note.draft note));
     ("synopsis", list string (safe_string_list_from_opt (Note.synopsis note)));
     ("titleimage", option string (Note.titleimage note));
+    ("thumbnail_url", option string thumbnail_url);
   ]
 
-let idea_to_document (idea : Idea.t) =
+let idea_to_document entries (idea : Idea.t) =
   let open Ezjsonm in
+  let contacts = Entry.contacts entries in
   (* Use January 1st of the year as the date for sorting *)
   let date_timestamp = date_to_timestamp (Idea.year idea, 1, 1) in
+
+  (* Convert body markdown to plain text *)
+  let description = Md.markdown_to_plaintext entries (Idea.body idea) in
+
+  (* Resolve supervisor handles to full names *)
+  let supervisors = resolve_author_list contacts (Idea.supervisors idea) in
+
+  let thumbnail_url = Entry.thumbnail entries (`Idea idea) in
   dict [
     ("id", string idea.slug);
     ("title", string (Idea.title idea));
-    ("description", string (Idea.body idea));  (* Use body as description *)
+    ("description", string description);
     ("level", string (Idea.level_to_string (Idea.level idea)));
     ("project", string (Idea.project idea));
     ("status", string (Idea.status_to_string (Idea.status idea)));
     ("year", int (Idea.year idea));
     ("date", string (Printf.sprintf "%04d-01-01" (Idea.year idea)));
     ("date_timestamp", int64 date_timestamp);
-    ("supervisors", list string (Idea.supervisors idea));
+    ("supervisors", list string supervisors);
     ("tags", list string idea.tags);
+    ("thumbnail_url", option string thumbnail_url);
   ]
 
 (** TODO:claude Load bushel data from directory *)
@@ -282,17 +362,20 @@ let add_embedding_field_to_schema schema config embedding_from_fields =
 (** TODO:claude Upload all bushel objects to their respective collections *)
 let upload_all config data_dir =
   let* () = Lwt_io.write Lwt_io.stdout (Fmt.str "Loading bushel data from %s\n" data_dir) in
-  
+
   let (contacts, papers, projects, news, videos, notes, ideas) = load_bushel_data data_dir in
+
+  (* Create entries object for resolving bushel links *)
+  let entries = Entry.v ~contacts ~papers ~projects ~news ~videos ~notes ~ideas ~images:[] ~data_dir:(data_dir ^ "/data") in
 
   let collections = [
     ("contacts", add_embedding_field_to_schema Contact.typesense_schema config ["name"; "names"], (List.map contact_to_document contacts : Ezjsonm.value list));
-    ("papers", add_embedding_field_to_schema Paper.typesense_schema config ["title"; "abstract"; "authors"], (List.map paper_to_document papers : Ezjsonm.value list));
-    ("videos", add_embedding_field_to_schema Video.typesense_schema config ["title"; "description"], (List.map video_to_document videos : Ezjsonm.value list));
-    ("projects", add_embedding_field_to_schema Project.typesense_schema config ["title"; "description"; "tags"], (List.map project_to_document projects : Ezjsonm.value list));
-    ("news", add_embedding_field_to_schema News.typesense_schema config ["title"; "content"; "tags"], (List.map news_to_document news : Ezjsonm.value list));
-    ("notes", add_embedding_field_to_schema Note.typesense_schema config ["title"; "content"; "tags"], (List.map note_to_document notes : Ezjsonm.value list));
-    ("ideas", add_embedding_field_to_schema Idea.typesense_schema config ["title"; "description"; "tags"], (List.map idea_to_document ideas : Ezjsonm.value list));
+    ("papers", add_embedding_field_to_schema Paper.typesense_schema config ["title"; "abstract"; "authors"], (List.map (paper_to_document entries) papers : Ezjsonm.value list));
+    ("videos", add_embedding_field_to_schema Video.typesense_schema config ["title"; "description"], (List.map (video_to_document entries) videos : Ezjsonm.value list));
+    ("projects", add_embedding_field_to_schema Project.typesense_schema config ["title"; "description"; "tags"], (List.map (project_to_document entries) projects : Ezjsonm.value list));
+    ("news", add_embedding_field_to_schema News.typesense_schema config ["title"; "content"; "tags"], (List.map (news_to_document entries) news : Ezjsonm.value list));
+    ("notes", add_embedding_field_to_schema Note.typesense_schema config ["title"; "content"; "tags"], (List.map (note_to_document entries) notes : Ezjsonm.value list));
+    ("ideas", add_embedding_field_to_schema Idea.typesense_schema config ["title"; "description"; "tags"], (List.map (idea_to_document entries) ideas : Ezjsonm.value list));
   ] in
 
   let upload_collection ((name, schema, documents) : string * Ezjsonm.value * Ezjsonm.value list) =

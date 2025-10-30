@@ -64,7 +64,7 @@ let load base =
   let news = load_news base in
   let ideas = load_ideas base in
   let videos = load_videos base in
-  Entry.v ~images ~papers ~notes ~projects ~ideas ~videos ~news ~contacts
+  Entry.v ~images ~papers ~notes ~projects ~ideas ~videos ~news ~contacts ~data_dir:(base ^ "/data")
 ;;
 
 (* TODO:claude *)

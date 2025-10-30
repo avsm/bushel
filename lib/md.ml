@@ -414,3 +414,69 @@ let scan_for_slugs entries md =
   Hashtbl.fold (fun k () a -> k :: a) slugs []
 ;;
 
+(** Extract the first image URL from markdown text *)
+let extract_first_image md =
+  let open Cmarkit in
+  (* Don't use bushel link resolver to avoid circular dependency with Entry *)
+  let doc = Doc.of_string md in
+  let found_image = ref None in
+
+  let find_image_in_inline _mapper = function
+    | Inline.Image (img, _) ->
+      (match Inline.Link.reference img with
+       | `Inline (ld, _) ->
+         (match Link_definition.dest ld with
+          | Some (url, _) when !found_image = None ->
+            found_image := Some url;
+            Mapper.default
+          | _ -> Mapper.default)
+       | _ -> Mapper.default)
+    | _ -> Mapper.default
+  in
+
+  let mapper = Mapper.make ~inline:find_image_in_inline () in
+  let _ = Mapper.map_doc mapper doc in
+  !found_image
+;;
+
+(** Convert markdown text to plain text, resolving bushel links to just their text *)
+let markdown_to_plaintext _entries text =
+  let open Cmarkit in
+  (* Parse markdown with bushel link resolver *)
+  let doc = Doc.of_string ~resolver:with_bushel_links text in
+
+  (* Convert document blocks to plain text *)
+  let rec block_to_text = function
+    | Block.Blank_line _ -> ""
+    | Block.Thematic_break _ -> "\n---\n"
+    | Block.Paragraph (p, _) ->
+      let inline = Block.Paragraph.inline p in
+      Inline.to_plain_text ~break_on_soft:false inline
+      |> List.map (String.concat "") |> String.concat "\n"
+    | Block.Heading (h, _) ->
+      let inline = Block.Heading.inline h in
+      Inline.to_plain_text ~break_on_soft:false inline
+      |> List.map (String.concat "") |> String.concat "\n"
+    | Block.Block_quote (bq, _) ->
+      let blocks = Block.Block_quote.block bq in
+      block_to_text blocks
+    | Block.List (l, _) ->
+      let items = Block.List'.items l in
+      List.map (fun (item, _) ->
+        let blocks = Block.List_item.block item in
+        block_to_text blocks
+      ) items |> String.concat "\n"
+    | Block.Code_block (cb, _) ->
+      let code = Block.Code_block.code cb in
+      String.concat "\n" (List.map Block_line.to_string code)
+    | Block.Html_block _ -> ""  (* Skip HTML blocks for search *)
+    | Block.Link_reference_definition _ -> ""
+    | Block.Ext_footnote_definition _ -> ""
+    | Block.Blocks (blocks, _) ->
+      List.map block_to_text blocks |> String.concat "\n"
+    | _ -> ""
+  in
+  let blocks = Doc.block doc in
+  block_to_text blocks
+;;
+

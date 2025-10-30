@@ -24,6 +24,7 @@ type t =
   ; news : News.ts
   ; contacts : Contact.ts
   ; images : Srcsetter.ts
+  ; data_dir : string
   }
 
 let contacts { contacts; _ } = contacts
@@ -34,7 +35,7 @@ let notes { notes; _ } = notes
 let projects { projects; _ } = projects
 let images { images; _ } = images
 
-let v ~papers ~notes ~projects ~ideas ~videos ~news ~contacts ~images =
+let v ~papers ~notes ~projects ~ideas ~videos ~news ~contacts ~images ~data_dir =
   let slugs : slugs = Hashtbl.create 42 in
   let papers, old_papers = List.partition (fun p -> p.Paper.latest) papers in
   List.iter (fun n -> Hashtbl.add slugs n.Note.slug (`Note n)) notes;
@@ -42,7 +43,7 @@ let v ~papers ~notes ~projects ~ideas ~videos ~news ~contacts ~images =
   List.iter (fun i -> Hashtbl.add slugs i.Idea.slug (`Idea i)) ideas;
   List.iter (fun v -> Hashtbl.add slugs v.Video.slug (`Video v)) videos;
   List.iter (fun p -> Hashtbl.add slugs p.Paper.slug (`Paper p)) papers;
-  { slugs; papers; old_papers; notes; projects; ideas; videos; news; images; contacts }
+  { slugs; papers; old_papers; notes; projects; ideas; videos; news; images; contacts; data_dir }
 ;;
 
 let lookup { slugs; _ } slug = Hashtbl.find_opt slugs slug
@@ -241,3 +242,110 @@ let lookup_by_name {contacts;_} n =
   match Contact.lookup_by_name contacts n with
   | v -> Some v
   | exception _ -> None
+
+(** Extract the first image URL from markdown text *)
+let extract_first_image md =
+  let open Cmarkit in
+  (* Don't use bushel link resolver to avoid circular dependency *)
+  let doc = Doc.of_string md in
+  let found_image = ref None in
+
+  let find_image_in_inline _mapper = function
+    | Inline.Image (img, _) ->
+      (match Inline.Link.reference img with
+       | `Inline (ld, _) ->
+         (match Link_definition.dest ld with
+          | Some (url, _) when !found_image = None ->
+            found_image := Some url;
+            Mapper.default
+          | _ -> Mapper.default)
+       | _ -> Mapper.default)
+    | _ -> Mapper.default
+  in
+
+  let mapper = Mapper.make ~inline:find_image_in_inline () in
+  let _ = Mapper.map_doc mapper doc in
+  !found_image
+;;
+
+(** Get thumbnail URL for an entry with fallbacks *)
+let rec thumbnail entries = function
+  | `Paper p ->
+    Some (Printf.sprintf "/images/papers/%s.webp" (Paper.slug p))
+
+  | `Video v ->
+    (* PeerTube videos - extract instance from URL and construct thumbnail *)
+    let url = Video.url v in
+    let uuid = Video.uuid v in
+    (try
+      let uri = Uri.of_string url in
+      let host = Uri.host uri in
+      let scheme = Uri.scheme uri in
+      match host, scheme with
+      | Some h, Some s ->
+        Some (Printf.sprintf "%s://%s/lazy-static/thumbnails/%s.jpg" s h uuid)
+      | _ -> None
+    with _ -> None)
+
+  | `Project p ->
+    let path = Printf.sprintf "/images/project-%s.webp" p.Project.slug in
+    (* Check if file exists, error if not *)
+    let f = Filename.concat (entries.data_dir  ^ "/../") path in
+    if Sys.file_exists f then
+      Some path
+    else
+      failwith (Printf.sprintf "Project thumbnail required but missing: %s" f)
+
+  | `Idea i ->
+    let is_active = match Idea.status i with
+      | Idea.Available | Idea.Discussion | Idea.Ongoing -> true
+      | Idea.Completed | Idea.Expired -> false
+    in
+    if is_active then
+      (* Use first supervisor's face image *)
+      let supervisors = Idea.supervisors i in
+      match supervisors with
+      | sup :: _ ->
+        let handle = if String.length sup > 0 && sup.[0] = '@'
+          then String.sub sup 1 (String.length sup - 1)
+          else sup
+        in
+        (match Contact.find_by_handle (contacts entries) handle with
+         | Some c ->
+           Contact.icon c
+         | None ->
+           (* Fallback to project thumbnail *)
+           let project_slug = Idea.project i in
+           (match lookup entries (":" ^ project_slug) with
+            | Some p -> thumbnail entries p
+            | None -> None))
+      | [] ->
+        (* No supervisors, use project thumbnail *)
+        let project_slug = Idea.project i in
+        (match lookup entries (":" ^ project_slug) with
+         | Some p -> thumbnail entries p
+         | None -> None)
+    else
+      (* Use project thumbnail for completed/expired ideas *)
+      let project_slug = Idea.project i in
+      (match lookup entries (":" ^ project_slug) with
+       | Some p -> thumbnail entries p
+       | None -> None)
+
+  | `Note n ->
+    (* Use titleimage if set, otherwise extract first image from body *)
+    (match Note.titleimage n with
+     | Some url -> Some url
+     | None ->
+       (* Extract first image from markdown body *)
+       extract_first_image (Note.body n))
+
+(** Get thumbnail URL for a news entry *)
+let thumbnail_news entries news_item =
+  (* Use linked entry's thumbnail *)
+  let slug_ent = News.slug_ent news_item in
+  match lookup entries (":" ^ slug_ent) with
+  | Some entry -> thumbnail entries entry
+  | None ->
+    (* Fallback to extracting first image from news body *)
+    extract_first_image (News.body news_item)

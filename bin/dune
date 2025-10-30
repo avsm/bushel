@@ -7,7 +7,7 @@
  (name bushel_main)
  (public_name bushel)
  (package bushel)
- (modules bushel_main bushel_bibtex bushel_ideas bushel_obsidian bushel_paper bushel_paper_classify bushel_paper_tex bushel_video bushel_thumbs bushel_faces bushel_links bushel_search)
+ (modules bushel_main bushel_bibtex bushel_ideas bushel_obsidian bushel_paper bushel_paper_classify bushel_paper_tex bushel_video bushel_video_thumbs bushel_thumbs bushel_faces bushel_links bushel_search)
  (flags (:standard -w -69))
  (libraries bushel bushel_common cmdliner cohttp-lwt-unix lwt.unix yaml ezjsonm zotero-translation peertube fmt fmt.cli fmt.tty logs logs.cli logs.fmt cmarkit karakeep uri unix ptime.clock.os))
 
