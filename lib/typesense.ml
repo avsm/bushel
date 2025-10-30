@@ -234,6 +234,22 @@ let video_to_document entries (video : Video.t) =
   (* Convert body markdown to plain text *)
   let description = Md.markdown_to_plaintext entries (Video.body video) |> truncate_for_embedding in
 
+  (* Resolve paper and project slugs to titles *)
+  let paper_title = match Video.paper video with
+    | Some slug ->
+        (match Entry.lookup entries (":" ^ slug) with
+         | Some entry -> Some (Entry.title entry)
+         | None -> Some slug) (* Fallback to slug if not found *)
+    | None -> None
+  in
+  let project_title = match Video.project video with
+    | Some slug ->
+        (match Entry.lookup entries (":" ^ slug) with
+         | Some entry -> Some (Entry.title entry)
+         | None -> Some slug) (* Fallback to slug if not found *)
+    | None -> None
+  in
+
   let thumbnail_url = Entry.thumbnail entries (`Video video) in
   dict [
     ("id", string (Video.slug video));
@@ -245,8 +261,8 @@ let video_to_document entries (video : Video.t) =
     ("url", string (Video.url video));
     ("uuid", string (Video.uuid video));
     ("is_talk", bool (Video.talk video));
-    ("paper", list string (safe_string_list_from_opt (Video.paper video)));
-    ("project", list string (safe_string_list_from_opt (Video.project video)));
+    ("paper", list string (safe_string_list_from_opt paper_title));
+    ("project", list string (safe_string_list_from_opt project_title));
     ("tags", list string video.tags);
     ("thumbnail_url", string (Option.value ~default:"" thumbnail_url));
   ]
@@ -263,6 +279,7 @@ let note_to_document entries (note : Note.t) =
   let content = Md.markdown_to_plaintext entries (Note.body note) |> truncate_for_embedding in
 
   let thumbnail_url = Entry.thumbnail entries (`Note note) in
+  let word_count = Note.words note in
   dict [
     ("id", string (Note.slug note));
     ("title", string (Note.title note));
@@ -273,6 +290,7 @@ let note_to_document entries (note : Note.t) =
     ("draft", bool (Note.draft note));
     ("synopsis", list string (safe_string_list_from_opt (Note.synopsis note)));
     ("thumbnail_url", string (Option.value ~default:"" thumbnail_url));
+    ("words", int word_count);
   ]
 
 let idea_to_document entries (idea : Idea.t) =
@@ -284,8 +302,9 @@ let idea_to_document entries (idea : Idea.t) =
   (* Convert body markdown to plain text *)
   let description = Md.markdown_to_plaintext entries (Idea.body idea) |> truncate_for_embedding in
 
-  (* Resolve supervisor handles to full names *)
+  (* Resolve supervisor and student handles to full names *)
   let supervisors = resolve_author_list contacts (Idea.supervisors idea) in
+  let students = resolve_author_list contacts (Idea.students idea) in
 
   let thumbnail_url = Entry.thumbnail entries (`Idea idea) in
   dict [
@@ -299,6 +318,7 @@ let idea_to_document entries (idea : Idea.t) =
     ("date", string (Printf.sprintf "%04d-01-01" (Idea.year idea)));
     ("date_timestamp", int64 date_timestamp);
     ("supervisors", list string supervisors);
+    ("students", list string students);
     ("tags", list string idea.tags);
     ("thumbnail_url", string (Option.value ~default:"" thumbnail_url));
   ]

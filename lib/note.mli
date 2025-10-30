@@ -11,6 +11,11 @@ type t =
   ; synopsis: string option
   ; titleimage: string option
   ; via : (string * string) option
+  ; slug_ent : string option
+  ; source : string option
+  ; url : string option
+  ; author : string option
+  ; category : string option
   }
 
 type ts = t list
@@ -26,6 +31,11 @@ val title : t -> string
 val draft : t -> bool
 val synopsis : t -> string option
 val titleimage : t -> string option
+val slug_ent : t -> string option
+val source : t -> string option
+val url : t -> string option
+val author : t -> string option
+val category : t -> string option
 val tags : t -> string list
 val sidebar : t -> string option
 val lookup : string -> t list -> t

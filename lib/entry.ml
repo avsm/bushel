@@ -7,8 +7,8 @@ type entry =
   ]
 
 type feed =
-  [ `News of News.t * entry
-  | `Entry of entry
+  [ `Note of Note.t * entry  (* Note with slug_ent paired with its referenced entry *)
+  | `Entry of entry          (* Standalone entry or note without slug_ent *)
   ]
 
 type slugs = (string, entry) Hashtbl.t
@@ -195,7 +195,7 @@ let year x =
 
 let feed_date (x : feed) =
   match x with
-  | `News (n, _) -> News.date n
+  | `Note (n, _) -> Note.date n
   | `Entry e -> date e
 ;;
 
@@ -203,13 +203,13 @@ let feed_datetime x = feed_date x |> Ptime.of_date |> Option.get
 
 let feed_title (x : feed) =
   match x with
-  | `News (n, _) -> News.title n
+  | `Note (n, _) -> Note.title n
   | `Entry e -> title e
 ;;
 
 let feed_url (x : feed) =
   match x with
-  | `News (n, _) -> News.site_url n
+  | `Note (n, _) -> "/notes/" ^ Note.slug n
   | `Entry e -> site_url e
 ;;
 
@@ -227,6 +227,8 @@ let feed_compare b a =
 
 let news_for_slug { news; _ } slug = List.filter (fun n -> n.News.slug_ent = slug) news
 let news_for_tag { news; _ } tag = List.filter (fun n -> List.mem tag n.News.tags) news
+let notes_for_slug { notes; _ } slug =
+  List.filter (fun n -> match Note.slug_ent n with Some s -> s = slug | None -> false) notes
 let all_entries { slugs; _ } = Hashtbl.fold (fun _ v acc -> v :: acc) slugs []
 
 let all_papers { papers; old_papers; _ } =
@@ -363,7 +365,7 @@ let rec thumbnail_slug entries = function
        | None -> None)
 
   | `Note n ->
-    (* Use titleimage if set, otherwise extract first image from body *)
+    (* Use titleimage if set, otherwise extract first image from body, otherwise use slug_ent's thumbnail *)
     (match Note.titleimage n with
      | Some url ->
        (* If it's a bushel image slug (no scheme), use it; otherwise treat as external *)
@@ -378,7 +380,15 @@ let rec thumbnail_slug entries = function
        match extract_first_image (Note.body n) with
        | Some url when String.starts_with ~prefix:":" url ->
          Some (String.sub url 1 (String.length url - 1))
-       | _ -> None)
+       | Some _ -> None
+       | None ->
+         (* Fallback to slug_ent's thumbnail if present *)
+         match Note.slug_ent n with
+         | Some slug_ent ->
+           (match lookup entries (":" ^ slug_ent) with
+            | Some entry -> thumbnail_slug entries entry
+            | None -> None)
+         | None -> None)
 
 (** Get thumbnail URL for an entry with fallbacks - resolved through srcsetter *)
 let thumbnail entries entry =
@@ -389,7 +399,21 @@ let thumbnail entries entry =
     | Some img -> Some (smallest_webp_variant img)
     | None -> None (* Image not in srcsetter - thumbnails are optional *)
 
-(** Get thumbnail URL for a news entry *)
+(** Get thumbnail URL for a note with slug_ent *)
+let thumbnail_note_with_ent entries note_item =
+  (* Use linked entry's thumbnail if slug_ent is set *)
+  match Note.slug_ent note_item with
+  | Some slug_ent ->
+    (match lookup entries (":" ^ slug_ent) with
+     | Some entry -> thumbnail entries entry
+     | None ->
+       (* Fallback to extracting first image from note body *)
+       extract_first_image (Note.body note_item))
+  | None ->
+    (* No slug_ent, extract from note body *)
+    extract_first_image (Note.body note_item)
+
+(** Get thumbnail URL for a news entry - backward compat wrapper *)
 let thumbnail_news entries news_item =
   (* Use linked entry's thumbnail *)
   let slug_ent = News.slug_ent news_item in

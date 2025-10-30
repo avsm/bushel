@@ -26,7 +26,11 @@ let dbg l = Printf.eprintf "loading %s\n%!" l
 
 let load_contacts base = dbg "contacts"; map_category base "contacts" Contact.of_md
 let load_projects base = dbg "projects"; map_category base "projects" Project.of_md
-let load_notes base = dbg "notes"; map_category base "notes" Note.of_md
+let load_notes base =
+  dbg "notes";
+  let notes_from_notes = map_category base "notes" Note.of_md in
+  let notes_from_news = map_category base "news" Note.of_md in
+  notes_from_notes @ notes_from_news
 let load_news base = dbg "news"; map_category base "news" News.of_md
 let load_ideas base = dbg "ideas"; map_category base "ideas" Idea.of_md
 let load_videos base = dbg "videos"; map_category base "videos" Video.of_md

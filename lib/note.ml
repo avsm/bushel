@@ -11,6 +11,11 @@ type t =
   ; synopsis: string option
   ; titleimage: string option
   ; via : (string * string) option
+  ; slug_ent : string option  (* Optional reference to another entry *)
+  ; source : string option     (* Optional source for news-style notes *)
+  ; url : string option        (* Optional external URL for news-style notes *)
+  ; author : string option     (* Optional author for news-style notes *)
+  ; category : string option   (* Optional category for news-style notes *)
   }
 
 type ts = t list
@@ -40,6 +45,11 @@ let sidebar { sidebar; _ } = sidebar
 let synopsis { synopsis; _ } = synopsis
 let draft { draft; _ } = draft
 let titleimage { titleimage; _ } = titleimage
+let slug_ent { slug_ent; _ } = slug_ent
+let source { source; _ } = source
+let url { url; _ } = url
+let author { author; _ } = author
+let category { category; _ } = category
 let lookup slug notes = List.find (fun n -> n.slug = slug) notes
 let read_file file = In_channel.(with_open_bin file input_all)
 let words { body; _ } = Util.count_words body
@@ -98,7 +108,32 @@ let of_md fname =
       | None, Some (`String b) -> Some ("", b)
       | _ -> None
     in
-    { title; draft; date; slug; synopsis; titleimage; index_page; body; via; updated; tags; sidebar }
+    let slug_ent =
+      match Jekyll_format.find "slug_ent" fields with
+      | Some (`String v) -> Some v
+      | _ -> None
+    in
+    let source =
+      match Jekyll_format.find "source" fields with
+      | Some (`String v) -> Some v
+      | _ -> None
+    in
+    let url =
+      match Jekyll_format.find "url" fields with
+      | Some (`String v) -> Some v
+      | _ -> None
+    in
+    let author =
+      match Jekyll_format.find "author" fields with
+      | Some (`String v) -> Some v
+      | _ -> None
+    in
+    let category =
+      match Jekyll_format.find "category" fields with
+      | Some (`String v) -> Some v
+      | _ -> None
+    in
+    { title; draft; date; slug; synopsis; titleimage; index_page; body; via; updated; tags; sidebar; slug_ent; source; url; author; category }
 
 (* TODO:claude *)
 let typesense_schema =
@@ -122,6 +157,12 @@ let typesense_schema =
       [("name", string "related_projects"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "related_contacts"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "attachments"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "source"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
+      [("name", string "url"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "author"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "category"); ("type", string "string"); ("facet", bool true); ("optional", bool true)];
+      [("name", string "slug_ent"); ("type", string "string"); ("optional", bool true)];
+      [("name", string "words"); ("type", string "int32"); ("optional", bool true)];
     ]);
     ("default_sorting_field", string "date_timestamp");
   ]
