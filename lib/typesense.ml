@@ -70,6 +70,11 @@ let upload_documents config collection_name (documents : Ezjsonm.value list) =
 
 (** TODO:claude Convert Bushel objects to Typesense documents *)
 
+(** TODO:claude Helper function to truncate long strings for embedding *)
+let truncate_for_embedding ?(max_chars=20000) text =
+  if String.length text <= max_chars then text
+  else String.sub text 0 max_chars
+
 (** TODO:claude Helper function to convert Ptime to Unix timestamp *)
 let ptime_to_timestamp ptime =
   let span = Ptime.to_span ptime in
@@ -135,7 +140,7 @@ let paper_to_document entries (paper : Paper.t) =
   let authors = resolve_author_list contacts (Paper.authors paper) in
 
   (* Convert abstract markdown to plain text *)
-  let abstract = Md.markdown_to_plaintext entries (Paper.abstract paper) in
+  let abstract = Md.markdown_to_plaintext entries (Paper.abstract paper) |> truncate_for_embedding in
 
   (* Extract publication metadata *)
   let bibtype = Paper.bibtype paper in
@@ -174,7 +179,7 @@ let paper_to_document entries (paper : Paper.t) =
     ("pdf_url", Ezjsonm.list Ezjsonm.string (extract_string_array_from_json "pdf_url"));
     ("journal", Ezjsonm.list Ezjsonm.string (extract_string_array_from_json "journal"));
     ("related_projects", Ezjsonm.list Ezjsonm.string (Paper.project_slugs paper));
-    ("thumbnail_url", Ezjsonm.option Ezjsonm.string thumbnail_url);
+    ("thumbnail_url", Ezjsonm.string (Option.value ~default:"" thumbnail_url));
   ]
 
 let project_to_document entries (project : Project.t) =
@@ -183,7 +188,7 @@ let project_to_document entries (project : Project.t) =
   let date_timestamp = date_to_timestamp (project.start, 1, 1) in
 
   (* Convert body markdown to plain text *)
-  let description = Md.markdown_to_plaintext entries (Project.body project) in
+  let description = Md.markdown_to_plaintext entries (Project.body project) |> truncate_for_embedding in
 
   let thumbnail_url = Entry.thumbnail entries (`Project project) in
   dict [
@@ -196,7 +201,7 @@ let project_to_document entries (project : Project.t) =
     ("date", string (Printf.sprintf "%04d-01-01" project.start));
     ("date_timestamp", int64 date_timestamp);
     ("tags", list string (Project.tags project));
-    ("thumbnail_url", option string thumbnail_url);
+    ("thumbnail_url", string (Option.value ~default:"" thumbnail_url));
   ]
 
 let news_to_document entries (news : News.t) =
@@ -204,7 +209,7 @@ let news_to_document entries (news : News.t) =
   let datetime = News.datetime news in
 
   (* Convert body markdown to plain text *)
-  let content = Md.markdown_to_plaintext entries (News.body news) in
+  let content = Md.markdown_to_plaintext entries (News.body news) |> truncate_for_embedding in
 
   let thumbnail_url = Entry.thumbnail_news entries news in
   dict [
@@ -215,7 +220,7 @@ let news_to_document entries (news : News.t) =
     ("date_timestamp", int64 (ptime_to_timestamp datetime));
     ("tags", list string (News.tags news));
     ("url", string (News.site_url news));
-    ("thumbnail_url", option string thumbnail_url);
+    ("thumbnail_url", string (Option.value ~default:"" thumbnail_url));
   ]
 
 let video_to_document entries (video : Video.t) =
@@ -227,7 +232,7 @@ let video_to_document entries (video : Video.t) =
   in
 
   (* Convert body markdown to plain text *)
-  let description = Md.markdown_to_plaintext entries (Video.body video) in
+  let description = Md.markdown_to_plaintext entries (Video.body video) |> truncate_for_embedding in
 
   let thumbnail_url = Entry.thumbnail entries (`Video video) in
   dict [
@@ -239,11 +244,11 @@ let video_to_document entries (video : Video.t) =
     ("date_timestamp", int64 (ptime_to_timestamp datetime));
     ("url", string (Video.url video));
     ("uuid", string (Video.uuid video));
-    ("talk", bool (Video.talk video));
+    ("is_talk", bool (Video.talk video));
     ("paper", list string (safe_string_list_from_opt (Video.paper video)));
     ("project", list string (safe_string_list_from_opt (Video.project video)));
     ("tags", list string video.tags);
-    ("thumbnail_url", option string thumbnail_url);
+    ("thumbnail_url", string (Option.value ~default:"" thumbnail_url));
   ]
 
 let note_to_document entries (note : Note.t) =
@@ -255,7 +260,7 @@ let note_to_document entries (note : Note.t) =
   in
 
   (* Convert body markdown to plain text *)
-  let content = Md.markdown_to_plaintext entries (Note.body note) in
+  let content = Md.markdown_to_plaintext entries (Note.body note) |> truncate_for_embedding in
 
   let thumbnail_url = Entry.thumbnail entries (`Note note) in
   dict [
@@ -268,7 +273,7 @@ let note_to_document entries (note : Note.t) =
     ("draft", bool (Note.draft note));
     ("synopsis", list string (safe_string_list_from_opt (Note.synopsis note)));
     ("titleimage", option string (Note.titleimage note));
-    ("thumbnail_url", option string thumbnail_url);
+    ("thumbnail_url", string (Option.value ~default:"" thumbnail_url));
   ]
 
 let idea_to_document entries (idea : Idea.t) =
@@ -278,7 +283,7 @@ let idea_to_document entries (idea : Idea.t) =
   let date_timestamp = date_to_timestamp (Idea.year idea, 1, 1) in
 
   (* Convert body markdown to plain text *)
-  let description = Md.markdown_to_plaintext entries (Idea.body idea) in
+  let description = Md.markdown_to_plaintext entries (Idea.body idea) |> truncate_for_embedding in
 
   (* Resolve supervisor handles to full names *)
   let supervisors = resolve_author_list contacts (Idea.supervisors idea) in
@@ -296,7 +301,7 @@ let idea_to_document entries (idea : Idea.t) =
     ("date_timestamp", int64 date_timestamp);
     ("supervisors", list string supervisors);
     ("tags", list string idea.tags);
-    ("thumbnail_url", option string thumbnail_url);
+    ("thumbnail_url", string (Option.value ~default:"" thumbnail_url));
   ]
 
 (** TODO:claude Load bushel data from directory *)

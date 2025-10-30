@@ -317,3 +317,57 @@ let typesense_schema =
     ]);
     ("default_sorting_field", string "date_timestamp");
   ]
+
+(** TODO:claude Pretty-print a paper with ANSI formatting *)
+let pp ppf p =
+  let open Fmt in
+  pf ppf "@[<v>";
+  pf ppf "%a: %a@," (styled `Bold string) "Type" (styled `Cyan string) "Paper";
+  pf ppf "%a: %a@," (styled `Bold string) "Slug" string (slug p);
+  pf ppf "%a: %a@," (styled `Bold string) "Version" string p.ver;
+  pf ppf "%a: %a@," (styled `Bold string) "Title" string (title p);
+  pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Authors" (list ~sep:comma string) (authors p);
+  pf ppf "%a: %a@," (styled `Bold string) "Year" int (year p);
+  pf ppf "%a: %a@," (styled `Bold string) "Bibtype" string (bibtype p);
+  (match doi p with
+   | Some d -> pf ppf "%a: %a@," (styled `Bold string) "DOI" string d
+   | None -> ());
+  (match url p with
+   | Some u -> pf ppf "%a: %a@," (styled `Bold string) "URL" string u
+   | None -> ());
+  (match video p with
+   | Some v -> pf ppf "%a: %a@," (styled `Bold string) "Video" string v
+   | None -> ());
+  let projs = project_slugs p in
+  if projs <> [] then
+    pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Projects" (list ~sep:comma string) projs;
+  let sl = slides p in
+  if sl <> [] then
+    pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Slides" (list ~sep:comma string) sl;
+  (match bibtype p with
+   | "article" ->
+     pf ppf "%a: %a@," (styled `Bold string) "Journal" string (journal p);
+     (match volume p with
+      | Some vol -> pf ppf "%a: %a@," (styled `Bold string) "Volume" string vol
+      | None -> ());
+     (match issue p with
+      | Some iss -> pf ppf "%a: %a@," (styled `Bold string) "Issue" string iss
+      | None -> ());
+     let pgs = pages p in
+     if pgs <> "" then
+       pf ppf "%a: %a@," (styled `Bold string) "Pages" string pgs;
+   | "inproceedings" ->
+     pf ppf "%a: %a@," (styled `Bold string) "Booktitle" string (booktitle p);
+     let pgs = pages p in
+     if pgs <> "" then
+       pf ppf "%a: %a@," (styled `Bold string) "Pages" string pgs;
+   | "techreport" ->
+     pf ppf "%a: %a@," (styled `Bold string) "Institution" string (institution p);
+     (match number p with
+      | Some num -> pf ppf "%a: %a@," (styled `Bold string) "Number" string num
+      | None -> ());
+   | _ -> ());
+  pf ppf "@,";
+  pf ppf "%a:@," (styled `Bold string) "Abstract";
+  pf ppf "%a@," (styled `Faint string) (abstract p);
+  pf ppf "@]"

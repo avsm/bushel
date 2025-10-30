@@ -138,3 +138,29 @@ let typesense_schema =
     ]);
     ("default_sorting_field", string "date_timestamp");
   ]
+
+(** TODO:claude Pretty-print a video with ANSI formatting *)
+let pp ppf v =
+  let open Fmt in
+  pf ppf "@[<v>";
+  pf ppf "%a: %a@," (styled `Bold string) "Type" (styled `Cyan string) "Video";
+  pf ppf "%a: %a@," (styled `Bold string) "Slug" string (slug v);
+  pf ppf "%a: %a@," (styled `Bold string) "UUID" string (uuid v);
+  pf ppf "%a: %a@," (styled `Bold string) "Title" string (title v);
+  let (year, month, day) = date v in
+  pf ppf "%a: %04d-%02d-%02d@," (styled `Bold string) "Date" year month day;
+  pf ppf "%a: %a@," (styled `Bold string) "URL" string (url v);
+  pf ppf "%a: %b@," (styled `Bold string) "Talk" (talk v);
+  (match paper v with
+   | Some p -> pf ppf "%a: %a@," (styled `Bold string) "Paper" string p
+   | None -> ());
+  (match project v with
+   | Some p -> pf ppf "%a: %a@," (styled `Bold string) "Project" string p
+   | None -> ());
+  let t = v.tags in
+  if t <> [] then
+    pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Tags" (list ~sep:comma string) t;
+  pf ppf "@,";
+  pf ppf "%a:@," (styled `Bold string) "Description";
+  pf ppf "%a@," string v.description;
+  pf ppf "@]"

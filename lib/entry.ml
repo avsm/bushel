@@ -34,6 +34,7 @@ let papers { papers; _ } = papers
 let notes { notes; _ } = notes
 let projects { projects; _ } = projects
 let images { images; _ } = images
+let data_dir { data_dir; _ } = data_dir
 
 let v ~papers ~notes ~projects ~ideas ~videos ~news ~contacts ~images ~data_dir =
   let slugs : slugs = Hashtbl.create 42 in
@@ -268,33 +269,40 @@ let extract_first_image md =
   !found_image
 ;;
 
-(** Get thumbnail URL for an entry with fallbacks *)
-let rec thumbnail entries = function
+(** Look up an image in the srcsetter list by slug *)
+let lookup_image { images; _ } slug =
+  List.find_opt (fun img -> Srcsetter.slug img = slug) images
+
+(** Get thumbnail slug for a contact *)
+let contact_thumbnail_slug contact =
+  (* Contact images use just the handle as slug *)
+  Some (Contact.handle contact)
+
+(** Get thumbnail URL for a contact - resolved through srcsetter *)
+let contact_thumbnail entries contact =
+  match contact_thumbnail_slug contact with
+  | None -> None
+  | Some thumb_slug ->
+    match lookup_image entries thumb_slug with
+    | Some img -> Some (Srcsetter.origin img)
+    | None ->
+      (* Error: all images must be in srcsetter *)
+      failwith (Printf.sprintf "Contact thumbnail image not in srcsetter: %s (for contact: @%s)"
+        thumb_slug (Contact.handle contact))
+
+(** Get thumbnail slug for an entry with fallbacks *)
+let rec thumbnail_slug entries = function
   | `Paper p ->
-    Some (Printf.sprintf "/images/papers/%s.webp" (Paper.slug p))
+    (* Slug is just the paper slug, directory is in the origin path *)
+    Some (Paper.slug p)
 
   | `Video v ->
-    (* PeerTube videos - extract instance from URL and construct thumbnail *)
-    let url = Video.url v in
-    let uuid = Video.uuid v in
-    (try
-      let uri = Uri.of_string url in
-      let host = Uri.host uri in
-      let scheme = Uri.scheme uri in
-      match host, scheme with
-      | Some h, Some s ->
-        Some (Printf.sprintf "%s://%s/lazy-static/thumbnails/%s.jpg" s h uuid)
-      | _ -> None
-    with _ -> None)
+    (* Videos use their UUID as the slug *)
+    Some (Video.uuid v)
 
   | `Project p ->
-    let path = Printf.sprintf "/images/project-%s.webp" p.Project.slug in
-    (* Check if file exists, error if not *)
-    let f = Filename.concat (entries.data_dir  ^ "/../") path in
-    if Sys.file_exists f then
-      Some path
-    else
-      failwith (Printf.sprintf "Project thumbnail required but missing: %s" f)
+    (* Project images use "project-{slug}" format *)
+    Some (Printf.sprintf "project-%s" p.Project.slug)
 
   | `Idea i ->
     let is_active = match Idea.status i with
@@ -312,33 +320,57 @@ let rec thumbnail entries = function
         in
         (match Contact.find_by_handle (contacts entries) handle with
          | Some c ->
-           Contact.icon c
+           (* Contact images use just the handle as slug *)
+           Some (Contact.handle c)
          | None ->
            (* Fallback to project thumbnail *)
            let project_slug = Idea.project i in
-           (match lookup entries (":" ^ project_slug) with
-            | Some p -> thumbnail entries p
+           (match lookup entries project_slug with
+            | Some p -> thumbnail_slug entries p
             | None -> None))
       | [] ->
         (* No supervisors, use project thumbnail *)
         let project_slug = Idea.project i in
-        (match lookup entries (":" ^ project_slug) with
-         | Some p -> thumbnail entries p
+        (match lookup entries project_slug with
+         | Some p -> thumbnail_slug entries p
          | None -> None)
     else
       (* Use project thumbnail for completed/expired ideas *)
       let project_slug = Idea.project i in
-      (match lookup entries (":" ^ project_slug) with
-       | Some p -> thumbnail entries p
+      (match lookup entries project_slug with
+       | Some p -> thumbnail_slug entries p
        | None -> None)
 
   | `Note n ->
     (* Use titleimage if set, otherwise extract first image from body *)
     (match Note.titleimage n with
-     | Some url -> Some url
+     | Some url ->
+       (* If it's a bushel image slug (no scheme), use it; otherwise treat as external *)
+       if String.contains url ':' && not (String.starts_with ~prefix:":" url) then
+         None  (* External URL, not a bushel image *)
+       else
+         Some (if String.starts_with ~prefix:":" url
+               then String.sub url 1 (String.length url - 1)
+               else url)
      | None ->
        (* Extract first image from markdown body *)
-       extract_first_image (Note.body n))
+       match extract_first_image (Note.body n) with
+       | Some url when String.starts_with ~prefix:":" url ->
+         Some (String.sub url 1 (String.length url - 1))
+       | _ -> None)
+
+(** Get thumbnail URL for an entry with fallbacks - resolved through srcsetter *)
+let thumbnail entries entry =
+  match thumbnail_slug entries entry with
+  | None -> None
+  | Some thumb_slug ->
+    match lookup_image entries thumb_slug with
+    | Some img -> Some (Srcsetter.origin img)
+    | None ->
+      (* Error: all images must be in srcsetter *)
+      let entry_slug = slug entry in
+      failwith (Printf.sprintf "Thumbnail image not in srcsetter: %s (for entry: %s)"
+        thumb_slug entry_slug)
 
 (** Get thumbnail URL for a news entry *)
 let thumbnail_news entries news_item =

@@ -126,3 +126,40 @@ let typesense_schema =
       [("name", string "atom"); ("type", string "string[]"); ("optional", bool true)];
     ]);
   ]
+
+(** TODO:claude Pretty-print a contact with ANSI formatting *)
+let pp ppf c =
+  let open Fmt in
+  pf ppf "@[<v>";
+  pf ppf "%a: %a@," (styled `Bold string) "Type" (styled `Cyan string) "Contact";
+  pf ppf "%a: @%a@," (styled `Bold string) "Handle" string (handle c);
+  pf ppf "%a: %a@," (styled `Bold string) "Name" string (name c);
+  let ns = names c in
+  if List.length ns > 1 then
+    pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Aliases" (list ~sep:comma string) (List.tl ns);
+  (match email c with
+   | Some e -> pf ppf "%a: %a@," (styled `Bold string) "Email" string e
+   | None -> ());
+  (match github c with
+   | Some g -> pf ppf "%a: https://github.com/%a@," (styled `Bold string) "GitHub" string g
+   | None -> ());
+  (match twitter c with
+   | Some t -> pf ppf "%a: https://twitter.com/%a@," (styled `Bold string) "Twitter" string t
+   | None -> ());
+  (match bluesky c with
+   | Some b -> pf ppf "%a: %a@," (styled `Bold string) "Bluesky" string b
+   | None -> ());
+  (match mastodon c with
+   | Some m -> pf ppf "%a: %a@," (styled `Bold string) "Mastodon" string m
+   | None -> ());
+  (match url c with
+   | Some u -> pf ppf "%a: %a@," (styled `Bold string) "URL" string u
+   | None -> ());
+  (match icon c with
+   | Some i -> pf ppf "%a: %a@," (styled `Bold string) "Icon" string i
+   | None -> ());
+  (match atom c with
+   | Some atoms when atoms <> [] ->
+     pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Atom Feeds" (list ~sep:comma string) atoms
+   | _ -> ());
+  pf ppf "@]"

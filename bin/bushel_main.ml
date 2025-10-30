@@ -61,6 +61,9 @@ let bibtex_cmd =
 (* Ideas command *)
 let ideas_cmd = Bushel_ideas.cmd
 
+(* Info command *)
+let info_cmd = Bushel_info.cmd
+
 (* Main command *)
 let bushel_cmd =
   let doc = "Bushel content management toolkit" in
@@ -85,6 +88,7 @@ let bushel_cmd =
     bibtex_cmd;
     faces_cmd;
     ideas_cmd;
+    info_cmd;
     links_cmd;
     obsidian_cmd;
     paper_cmd;

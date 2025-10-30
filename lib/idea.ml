@@ -187,3 +187,37 @@ let typesense_schema =
     ]);
     ("default_sorting_field", string "date_timestamp");
   ]
+
+(** TODO:claude Pretty-print an idea with ANSI formatting *)
+let pp ppf i =
+  let open Fmt in
+  pf ppf "@[<v>";
+  pf ppf "%a: %a@," (styled `Bold string) "Type" (styled `Cyan string) "Idea";
+  pf ppf "%a: %a@," (styled `Bold string) "Slug" string i.slug;
+  pf ppf "%a: %a@," (styled `Bold string) "Title" string (title i);
+  pf ppf "%a: %a@," (styled `Bold string) "Level" string (level_to_string (level i));
+  pf ppf "%a: %a@," (styled `Bold string) "Status" string (status_to_string (status i));
+  pf ppf "%a: %a@," (styled `Bold string) "Project" string (project i);
+  pf ppf "%a: %04d-%02d@," (styled `Bold string) "Date" (year i) i.month;
+  let sups = supervisors i in
+  if sups <> [] then
+    pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Supervisors" (list ~sep:comma string) sups;
+  let studs = students i in
+  if studs <> [] then
+    pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Students" (list ~sep:comma string) studs;
+  (match i.url with
+   | Some url -> pf ppf "%a: %a@," (styled `Bold string) "URL" string url
+   | None -> ());
+  let t = i.tags in
+  if t <> [] then
+    pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Tags" (list ~sep:comma string) t;
+  let r = reading i in
+  if r <> "" then begin
+    pf ppf "@,";
+    pf ppf "%a:@," (styled `Bold string) "Reading";
+    pf ppf "%a@," string r;
+  end;
+  pf ppf "@,";
+  pf ppf "%a:@," (styled `Bold string) "Body";
+  pf ppf "%a@," string (body i);
+  pf ppf "@]"

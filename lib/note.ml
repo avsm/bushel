@@ -125,3 +125,47 @@ let typesense_schema =
     ]);
     ("default_sorting_field", string "date_timestamp");
   ]
+
+(** TODO:claude Pretty-print a note with ANSI formatting *)
+let pp ppf n =
+  let open Fmt in
+  pf ppf "@[<v>";
+  pf ppf "%a: %a@," (styled `Bold string) "Type" (styled `Cyan string) "Note";
+  pf ppf "%a: %a@," (styled `Bold string) "Slug" string (slug n);
+  pf ppf "%a: %a@," (styled `Bold string) "Title" string (title n);
+  let (year, month, day) = date n in
+  pf ppf "%a: %04d-%02d-%02d@," (styled `Bold string) "Date" year month day;
+  (match n.updated with
+   | Some (y, m, d) -> pf ppf "%a: %04d-%02d-%02d@," (styled `Bold string) "Updated" y m d
+   | None -> ());
+  pf ppf "%a: %b@," (styled `Bold string) "Draft" (draft n);
+  pf ppf "%a: %b@," (styled `Bold string) "Index Page" n.index_page;
+  (match synopsis n with
+   | Some syn -> pf ppf "%a: %a@," (styled `Bold string) "Synopsis" string syn
+   | None -> ());
+  (match titleimage n with
+   | Some img -> pf ppf "%a: %a@," (styled `Bold string) "Title Image" string img
+   | None -> ());
+  (match n.via with
+   | Some (label, url) ->
+     if label <> "" then
+       pf ppf "%a: %a (%a)@," (styled `Bold string) "Via" string label string url
+     else
+       pf ppf "%a: %a@," (styled `Bold string) "Via" string url
+   | None -> ());
+  let t = tags n in
+  if t <> [] then
+    pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Tags" (list ~sep:comma string) t;
+  (match sidebar n with
+   | Some sb ->
+     pf ppf "@,";
+     pf ppf "%a:@," (styled `Bold string) "Sidebar";
+     pf ppf "%a@," string sb
+   | None -> ());
+  let bd = body n in
+  if bd <> "" then begin
+    pf ppf "@,";
+    pf ppf "%a:@," (styled `Bold string) "Body";
+    pf ppf "%a@," string bd;
+  end;
+  pf ppf "@]"

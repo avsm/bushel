@@ -32,3 +32,4 @@ val lookup : string -> t list -> t
 val words : t -> int
 val of_md : string -> t
 val typesense_schema : Ezjsonm.value
+val pp : Format.formatter -> t -> unit

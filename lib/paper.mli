@@ -52,3 +52,4 @@ val classification_of_string : string -> classification
 val classification : t -> classification
 val selected : t -> bool
 val note : t -> string option
+val pp : Format.formatter -> t -> unit

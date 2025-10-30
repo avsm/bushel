@@ -16,6 +16,7 @@ val papers : t -> Paper.ts
 val notes : t -> Note.ts
 val projects : t -> Project.ts
 val images : t -> Srcsetter.ts
+val data_dir : t -> string
 
 val v
   :  papers:Paper.t list
@@ -69,7 +70,19 @@ val all_entries : t -> entry list
 val all_papers : t -> entry list
 val compare : entry -> entry -> int
 
-(** Get thumbnail URL for an entry with fallbacks *)
+(** Look up an image in the srcsetter list by slug *)
+val lookup_image : t -> string -> Srcsetter.t option
+
+(** Get thumbnail slug for a contact *)
+val contact_thumbnail_slug : Contact.t -> string option
+
+(** Get thumbnail URL for a contact - resolved through srcsetter *)
+val contact_thumbnail : t -> Contact.t -> string option
+
+(** Get thumbnail slug for an entry with fallbacks *)
+val thumbnail_slug : t -> entry -> string option
+
+(** Get thumbnail URL for an entry with fallbacks - resolved through srcsetter *)
 val thumbnail : t -> entry -> string option
 
 (** Get thumbnail URL for a news entry *)

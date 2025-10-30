@@ -78,3 +78,23 @@ let typesense_schema =
     ]);
     ("default_sorting_field", string "date_timestamp");
   ]
+
+(** TODO:claude Pretty-print a project with ANSI formatting *)
+let pp ppf p =
+  let open Fmt in
+  pf ppf "@[<v>";
+  pf ppf "%a: %a@," (styled `Bold string) "Type" (styled `Cyan string) "Project";
+  pf ppf "%a: %a@," (styled `Bold string) "Slug" string p.slug;
+  pf ppf "%a: %a@," (styled `Bold string) "Title" string (title p);
+  pf ppf "%a: %d@," (styled `Bold string) "Start" p.start;
+  (match p.finish with
+   | Some year -> pf ppf "%a: %d@," (styled `Bold string) "Finish" year
+   | None -> pf ppf "%a: ongoing@," (styled `Bold string) "Finish");
+  let t = tags p in
+  if t <> [] then
+    pf ppf "%a: @[<h>%a@]@," (styled `Bold string) "Tags" (list ~sep:comma string) t;
+  pf ppf "%a: %a@," (styled `Bold string) "Ideas" string (ideas p);
+  pf ppf "@,";
+  pf ppf "%a:@," (styled `Bold string) "Body";
+  pf ppf "%a@," string (body p);
+  pf ppf "@]"

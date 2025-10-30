@@ -112,3 +112,12 @@ val load_config_from_files : unit -> config
     Shows different fields based on the collection type (papers, videos, etc.).
     TODO:claude *)
 val pp_search_result_oneline : search_result -> string
+
+(** Convert Bushel objects to Typesense documents *)
+
+val contact_to_document : Contact.t -> Ezjsonm.value
+val paper_to_document : Entry.t -> Paper.t -> Ezjsonm.value
+val project_to_document : Entry.t -> Project.t -> Ezjsonm.value
+val video_to_document : Entry.t -> Video.t -> Ezjsonm.value
+val note_to_document : Entry.t -> Note.t -> Ezjsonm.value
+val idea_to_document : Entry.t -> Idea.t -> Ezjsonm.value

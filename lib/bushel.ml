@@ -32,7 +32,7 @@ let load_ideas base = dbg "ideas"; map_category base "ideas" Idea.of_md
 let load_videos base = dbg "videos"; map_category base "videos" Video.of_md
 
 let load_images base =
-  Printf.eprintf "load images %s/data/images\n%!" base;
+  Printf.eprintf "load images %s/images\n%!" base;
   try
     Srcsetter.list_of_json (Util.read_file (base ^ "/images/index.json")) |> Result.get_ok
   with
