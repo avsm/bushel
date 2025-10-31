@@ -204,25 +204,6 @@ let project_to_document entries (project : Project.t) =
     ("thumbnail_url", string (Option.value ~default:"" thumbnail_url));
   ]
 
-let news_to_document entries (news : News.t) =
-  let open Ezjsonm in
-  let datetime = News.datetime news in
-
-  (* Convert body markdown to plain text *)
-  let content = Md.markdown_to_plaintext entries (News.body news) |> truncate_for_embedding in
-
-  let thumbnail_url = Entry.thumbnail_news entries news in
-  dict [
-    ("id", string (News.slug news));
-    ("title", string (News.title news));
-    ("content", string content);
-    ("date", string (Ptime.to_rfc3339 datetime));
-    ("date_timestamp", int64 (ptime_to_timestamp datetime));
-    ("tags", list string (News.tags news));
-    ("url", string (News.site_url news));
-    ("thumbnail_url", string (Option.value ~default:"" thumbnail_url));
-  ]
-
 let video_to_document entries (video : Video.t) =
   let open Ezjsonm in
   let datetime = Video.datetime video in
@@ -357,14 +338,12 @@ let upload_all config entries =
   let notes = Entry.notes entries in
   let videos = Entry.videos entries in
   let ideas = Entry.ideas entries in
-  let news = Entry.news entries in
 
   let collections = [
     ("contacts", add_embedding_field_to_schema Contact.typesense_schema config ["name"; "names"], (List.map contact_to_document contacts : Ezjsonm.value list));
     ("papers", add_embedding_field_to_schema Paper.typesense_schema config ["title"; "abstract"; "authors"], (List.map (paper_to_document entries) papers : Ezjsonm.value list));
     ("videos", add_embedding_field_to_schema Video.typesense_schema config ["title"; "description"], (List.map (video_to_document entries) videos : Ezjsonm.value list));
     ("projects", add_embedding_field_to_schema Project.typesense_schema config ["title"; "description"; "tags"], (List.map (project_to_document entries) projects : Ezjsonm.value list));
-    ("news", add_embedding_field_to_schema News.typesense_schema config ["title"; "content"; "tags"], (List.map (news_to_document entries) news : Ezjsonm.value list));
     ("notes", add_embedding_field_to_schema Note.typesense_schema config ["title"; "content"; "tags"], (List.map (note_to_document entries) notes : Ezjsonm.value list));
     ("ideas", add_embedding_field_to_schema Idea.typesense_schema config ["title"; "description"; "tags"], (List.map (idea_to_document entries) ideas : Ezjsonm.value list));
   ] in

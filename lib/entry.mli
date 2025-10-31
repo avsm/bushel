@@ -16,7 +16,6 @@ val papers : t -> Paper.ts
 val notes : t -> Note.ts
 val projects : t -> Project.ts
 val images : t -> Srcsetter.ts
-val news : t -> News.ts
 val data_dir : t -> string
 
 val v
@@ -25,7 +24,6 @@ val v
   -> projects:Project.ts
   -> ideas:Idea.ts
   -> videos:Video.ts
-  -> news:News.ts
   -> contacts:Contact.ts
   -> images:Srcsetter.ts
   -> data_dir:string
@@ -33,7 +31,6 @@ val v
 
 val lookup : t -> string -> entry option
 val lookup_exn : t -> string -> entry
-val lookup_news : t -> string -> News.t option
 val lookup_site_url : t -> string -> string
 val lookup_title : t -> string -> string
 val lookup_by_name : t -> string -> Contact.t option
@@ -65,8 +62,6 @@ val feed_title : feed -> string
 val feed_url : feed -> string
 val feed_compare : feed -> feed -> int
 val is_index_entry : entry -> bool
-val news_for_slug : t -> string -> News.t list
-val news_for_tag : t -> string -> News.t list
 val notes_for_slug : t -> string -> Note.t list
 val all_entries : t -> entry list
 val all_papers : t -> entry list
@@ -92,6 +87,3 @@ val thumbnail : t -> entry -> string option
 
 (** Get thumbnail URL for a note with slug_ent *)
 val thumbnail_note_with_ent : t -> Note.t -> string option
-
-(** Get thumbnail URL for a news entry *)
-val thumbnail_news : t -> News.t -> string option

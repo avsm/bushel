@@ -1,6 +1,5 @@
 module Contact = Contact
 module Idea = Idea
-module News = News
 module Note = Note
 module Paper = Paper
 module Project = Project
@@ -31,7 +30,6 @@ let load_notes base =
   let notes_from_notes = map_category base "notes" Note.of_md in
   let notes_from_news = map_category base "news" Note.of_md in
   notes_from_notes @ notes_from_news
-let load_news base = dbg "news"; map_category base "news" News.of_md
 let load_ideas base = dbg "ideas"; map_category base "ideas" Idea.of_md
 let load_videos base = dbg "videos"; map_category base "videos" Video.of_md
 
@@ -65,11 +63,8 @@ let load base =
   let contacts = load_contacts base in
   let projects = load_projects base in
   let notes = load_notes base in
-  let news = load_news base in
   let ideas = load_ideas base in
   let videos = load_videos base in
-  Entry.v ~images ~papers ~notes ~projects ~ideas ~videos ~news ~contacts ~data_dir:(base ^ "/data")
+  Entry.v ~images ~papers ~notes ~projects ~ideas ~videos ~contacts ~data_dir:(base ^ "/data")
 ;;
-
-(* TODO:claude *)
 

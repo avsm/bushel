@@ -16,7 +16,6 @@ val to_raw_string : t -> string
 val pp : Format.formatter -> t -> unit
 val mention_entries : Entry.t -> t list -> Entry.entry list
 val tags_of_ent : Entry.t -> Entry.entry -> t list
-val tags_of_news : News.t -> t list
 val mentions : t list -> t list
 
 val count_tags

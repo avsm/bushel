@@ -113,14 +113,6 @@ let tags_of_ent entries ent : t list =
   (to_tag (Entry.slug ent) :: year_tag :: body_slugs) @ tags
 ;;
 
-let tags_of_news news =
-  let year_tag =
-    let y, _, _ = News.date news in
-    `Year y
-  in
-  year_tag :: List.map of_string news.News.tags
-;;
-
 let mentions tags =
   List.filter
     (function

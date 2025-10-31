@@ -21,7 +21,6 @@ type t =
   ; projects : Project.ts
   ; ideas : Idea.ts
   ; videos : Video.ts
-  ; news : News.ts
   ; contacts : Contact.ts
   ; images : Srcsetter.ts
   ; data_dir : string
@@ -34,10 +33,9 @@ let papers { papers; _ } = papers
 let notes { notes; _ } = notes
 let projects { projects; _ } = projects
 let images { images; _ } = images
-let news { news; _ } = news
 let data_dir { data_dir; _ } = data_dir
 
-let v ~papers ~notes ~projects ~ideas ~videos ~news ~contacts ~images ~data_dir =
+let v ~papers ~notes ~projects ~ideas ~videos ~contacts ~images ~data_dir =
   let slugs : slugs = Hashtbl.create 42 in
   let papers, old_papers = List.partition (fun p -> p.Paper.latest) papers in
   List.iter (fun n -> Hashtbl.add slugs n.Note.slug (`Note n)) notes;
@@ -45,12 +43,11 @@ let v ~papers ~notes ~projects ~ideas ~videos ~news ~contacts ~images ~data_dir 
   List.iter (fun i -> Hashtbl.add slugs i.Idea.slug (`Idea i)) ideas;
   List.iter (fun v -> Hashtbl.add slugs v.Video.slug (`Video v)) videos;
   List.iter (fun p -> Hashtbl.add slugs p.Paper.slug (`Paper p)) papers;
-  { slugs; papers; old_papers; notes; projects; ideas; videos; news; images; contacts; data_dir }
+  { slugs; papers; old_papers; notes; projects; ideas; videos; images; contacts; data_dir }
 ;;
 
 let lookup { slugs; _ } slug = Hashtbl.find_opt slugs slug
 let lookup_exn { slugs; _ } slug = Hashtbl.find slugs slug
-let lookup_news { news; _ } s = List.find_opt (fun { News.slug; _ } -> slug = s) news
 
 let old_papers { old_papers; _ } = old_papers
 
@@ -163,18 +160,12 @@ let outgoing_links e = extract_external_links (body e)
 let lookup_site_url t slug =
   match lookup t slug with
   | Some ent -> site_url ent
-  | None ->
-     match lookup_news t slug with
-     | None -> ""
-     | Some news -> News.site_url news
+  | None -> ""
 
 let lookup_title t slug =
   match lookup t slug with
   | Some ent -> title ent
-  | None ->
-     match lookup_news t slug with
-     | None -> ""
-     | Some news -> News.title news
+  | None -> ""
 
 
 let date (x : entry) =
@@ -225,8 +216,6 @@ let feed_compare b a =
   if da = db then compare (feed_title a) (feed_title b) else Ptime.compare da db
 ;;
 
-let news_for_slug { news; _ } slug = List.filter (fun n -> n.News.slug_ent = slug) news
-let news_for_tag { news; _ } tag = List.filter (fun n -> List.mem tag n.News.tags) news
 let notes_for_slug { notes; _ } slug =
   List.filter (fun n -> match Note.slug_ent n with Some s -> s = slug | None -> false) notes
 let all_entries { slugs; _ } = Hashtbl.fold (fun _ v acc -> v :: acc) slugs []
@@ -285,8 +274,8 @@ let smallest_webp_variant img =
   in
   match webp_variants with
   | [] ->
-    (* No webp variants, fall back to origin *)
-    "/images/" ^ Srcsetter.origin img
+    (* No webp variants - use the name field which is always webp *)
+    "/images/" ^ Srcsetter.name img
   | variants ->
     (* Find the variant with the smallest width *)
     let smallest = List.fold_left (fun acc (name, (w, h)) ->
@@ -297,7 +286,7 @@ let smallest_webp_variant img =
     ) None variants in
     match smallest with
     | Some (name, _, _) -> "/images/" ^ name
-    | None -> "/images/" ^ Srcsetter.origin img
+    | None -> "/images/" ^ Srcsetter.name img
 
 (** Get thumbnail slug for a contact *)
 let contact_thumbnail_slug contact =
@@ -385,7 +374,7 @@ let rec thumbnail_slug entries = function
          (* Fallback to slug_ent's thumbnail if present *)
          match Note.slug_ent n with
          | Some slug_ent ->
-           (match lookup entries (":" ^ slug_ent) with
+           (match lookup entries slug_ent with
             | Some entry -> thumbnail_slug entries entry
             | None -> None)
          | None -> None)
@@ -412,13 +401,3 @@ let thumbnail_note_with_ent entries note_item =
   | None ->
     (* No slug_ent, extract from note body *)
     extract_first_image (Note.body note_item)
-
-(** Get thumbnail URL for a news entry - backward compat wrapper *)
-let thumbnail_news entries news_item =
-  (* Use linked entry's thumbnail *)
-  let slug_ent = News.slug_ent news_item in
-  match lookup entries (":" ^ slug_ent) with
-  | Some entry -> thumbnail entries entry
-  | None ->
-    (* Fallback to extracting first image from news body *)
-    extract_first_image (News.body news_item)

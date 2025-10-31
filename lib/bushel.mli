@@ -2,7 +2,6 @@
 
 module Contact = Contact
 module Idea = Idea
-module News = News
 module Note = Note
 module Paper = Paper
 module Project = Project
@@ -18,7 +17,6 @@ module Typesense = Typesense
 val load_contacts : string -> Contact.ts
 val load_projects : string -> Project.ts
 val load_notes : string -> Note.ts
-val load_news : string -> News.ts
 val load_ideas : string -> Idea.ts
 val load_videos : string -> Video.ts
 val load_images : string -> Srcsetter.ts
