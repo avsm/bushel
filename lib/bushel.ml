@@ -11,6 +11,7 @@ module Util = Util
 module Srcsetter = Srcsetter
 module Md = Md
 module Typesense = Typesense
+module Link_graph = Link_graph
 
 let map_md base subdir fn =
   let dir = base ^ "/data/" ^ subdir in
@@ -65,6 +66,12 @@ let load base =
   let notes = load_notes base in
   let ideas = load_ideas base in
   let videos = load_videos base in
-  Entry.v ~images ~papers ~notes ~projects ~ideas ~videos ~contacts ~data_dir:(base ^ "/data")
+  let entries = Entry.v ~images ~papers ~notes ~projects ~ideas ~videos ~contacts ~data_dir:(base ^ "/data") in
+  (* Build link graph *)
+  Printf.eprintf "Building link_graph...\n%!";
+  let graph = Link_graph.build_link_graph entries in
+  Fmt.epr "%a@." Link_graph.pp_graph graph;
+  Link_graph.set_graph graph;
+  entries
 ;;
 

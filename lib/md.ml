@@ -71,9 +71,8 @@ let link_target_is_bushel ?slugs lb =
         | _ -> ());
        Some (url, Inline.Link.text lb |> text_of_inline)
      | Some (url, _) when is_tag_slug url ->
-       let sh = strip_handle url in
-       let uri = Uri.(make ~path:"/news" ~query:[ "t", [ sh ] ] () |> to_string) in
-       Some (uri, Inline.Link.text lb |> text_of_inline)
+       (* Return the tag URL unchanged - will be handled by renderer *)
+       Some (url, Inline.Link.text lb |> text_of_inline)
      | Some (url, _) when is_contact_slug url ->
        Some (url, Inline.Link.text lb |> text_of_inline)
      | _ -> None)
@@ -102,8 +101,15 @@ let image_target_is_bushel lb =
 let rewrite_bushel_link_reference entries slug title meta =
   let open Cmarkit in
   let s = strip_handle slug in
-  (* Check if it's a contact (starts with @) or an entry *)
-  if is_contact_slug slug then
+  (* Check if it's a tag, contact, or entry *)
+  if is_tag_slug slug then
+    (* Tag link - keep the ## prefix in dest for renderer to detect *)
+    let txt = Inline.Text (title, meta) in
+    let ld = Link_definition.make ~dest:(slug, meta) () in
+    let ll = `Inline (ld, meta) in
+    let ld = Inline.Link.make txt ll in
+    Mapper.ret (Inline.Link (ld, meta))
+  else if is_contact_slug slug then
     (* Contact sidenote *)
     match Contact.find_by_handle (Entry.contacts entries) s with
     | Some c ->
@@ -355,9 +361,8 @@ let rewrite_label_reference ?slugs entries lb meta =
           else if is_tag_slug slug
           then (
             let sh = strip_handle slug in
-            let target, dest =
-              sh, Uri.(make ~path:"/news" ~query:[ "t", [ sh ] ] () |> to_string)
-            in
+            (* Use # as dest to prevent navigation, JavaScript will intercept *)
+            let target, dest = sh, "#" in
             let txt = Inline.Text (target, meta) in
             let ld = Link_definition.make ~dest:(dest, meta) () in
             let ll = `Inline (ld, meta) in
@@ -478,5 +483,43 @@ let markdown_to_plaintext _entries text =
   in
   let blocks = Doc.block doc in
   block_to_text blocks
+;;
+
+(** Extract all links from markdown text *)
+let extract_all_links text =
+  let open Cmarkit in
+  let doc = Doc.of_string ~resolver:with_bushel_links text in
+  let links = ref [] in
+
+  let find_links_in_inline _mapper = function
+    | Inline.Link (lb, _) ->
+      (* Check for inline link destination *)
+      (match Inline.Link.reference lb with
+       | `Inline (ld, _) ->
+         (match Link_definition.dest ld with
+          | Some (url, _) ->
+            links := url :: !links;
+            Mapper.default
+          | None -> Mapper.default)
+       | `Ref _ ->
+         (* For reference-style links, check if it has a referenced label *)
+         (match Inline.Link.referenced_label lb with
+          | Some l ->
+            let key = Label.key l in
+            (* Check if it's a bushel-style link *)
+            if String.length key > 0 && (key.[0] = ':' || key.[0] = '@' ||
+               (String.length key > 1 && key.[0] = '#' && key.[1] = '#')) then
+              links := key :: !links;
+            Mapper.default
+          | None -> Mapper.default))
+    | _ -> Mapper.default
+  in
+
+  let mapper = Mapper.make ~inline:find_links_in_inline () in
+  let _ = Mapper.map_doc mapper doc in
+
+  (* Deduplicate *)
+  let module StringSet = Set.Make(String) in
+  StringSet.elements (StringSet.of_list !links)
 ;;
 

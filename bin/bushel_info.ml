@@ -127,6 +127,26 @@ let info_cmd () base_dir slug_opt =
         Fmt.pr "@.@.";
         Fmt.pr "%a:@," (Fmt.styled `Bold Fmt.string) "Typesense Document";
         Fmt.pr "%s@," (Ezjsonm.value_to_string ~minify:false doc);
+        (* Add backlinks information *)
+        let backlinks = Bushel.Link_graph.get_backlinks_for_slug normalized_slug in
+        if backlinks <> [] then begin
+          Fmt.pr "@.@.";
+          Fmt.pr "%a (%d):@," (Fmt.styled `Bold Fmt.string) "Backlinks" (List.length backlinks);
+          List.iter (fun source_slug ->
+            match Entry.lookup entries source_slug with
+            | Some source_entry ->
+              let source_type = Entry.to_type_string source_entry in
+              let source_title = Entry.title source_entry in
+              Fmt.pr "  %a %a - %a@,"
+                (Fmt.styled `Cyan Fmt.string) source_slug
+                (Fmt.styled `Faint Fmt.string) (Printf.sprintf "(%s)" source_type)
+                Fmt.string source_title
+            | None ->
+              Fmt.pr "  %a %a@,"
+                (Fmt.styled `Cyan Fmt.string) source_slug
+                (Fmt.styled `Red Fmt.string) "(not found)"
+          ) backlinks
+        end;
         Fmt.pr "@.";
         0
 
