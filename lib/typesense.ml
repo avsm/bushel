@@ -92,13 +92,17 @@ let date_to_timestamp (year, month, day) =
 (** Resolve author handles to full names in a list *)
 let resolve_author_list contacts authors =
   List.map (fun author ->
-    if String.length author > 0 && author.[0] = '@' then
-      let handle = String.sub author 1 (String.length author - 1) in
-      match Contact.find_by_handle contacts handle with
-      | Some contact -> Contact.name contact
-      | None -> author (* Keep original if not found *)
-    else
-      author
+    (* Strip '@' prefix if present *)
+    let handle =
+      if String.length author > 0 && author.[0] = '@' then
+        String.sub author 1 (String.length author - 1)
+      else
+        author
+    in
+    (* Try to look up as a contact handle *)
+    match Contact.find_by_handle contacts handle with
+    | Some contact -> Contact.name contact
+    | None -> author (* Keep original if not found *)
   ) authors
 
 let contact_to_document (contact : Contact.t) =
@@ -287,13 +291,20 @@ let idea_to_document entries (idea : Idea.t) =
   let supervisors = resolve_author_list contacts (Idea.supervisors idea) in
   let students = resolve_author_list contacts (Idea.students idea) in
 
+  (* Resolve project slug to project title *)
+  let project_title =
+    match Entry.lookup entries (Idea.project idea) with
+    | Some entry -> Entry.title entry
+    | None -> Idea.project idea (* Fallback to slug if not found *)
+  in
+
   let thumbnail_url = Entry.thumbnail entries (`Idea idea) in
   dict [
     ("id", string idea.slug);
     ("title", string (Idea.title idea));
     ("description", string description);
     ("level", string (Idea.level_to_string (Idea.level idea)));
-    ("project", string (Idea.project idea));
+    ("project", string project_title);
     ("status", string (Idea.status_to_string (Idea.status idea)));
     ("year", int (Idea.year idea));
     ("date", string (Printf.sprintf "%04d-01-01" (Idea.year idea)));
