@@ -386,7 +386,49 @@ let thumbnail entries entry =
   | Some thumb_slug ->
     match lookup_image entries thumb_slug with
     | Some img -> Some (smallest_webp_variant img)
-    | None -> None (* Image not in srcsetter - thumbnails are optional *)
+    | None ->
+      (* For projects, fallback to supervisor faces if project image doesn't exist *)
+      (match entry with
+       | `Project p ->
+         (* Find ideas for this project *)
+         let project_ideas = List.filter (fun idea ->
+           Idea.project idea = ":" ^ p.Project.slug
+         ) (ideas entries) in
+         (* Collect all unique supervisors from these ideas *)
+         let all_supervisors =
+           List.fold_left (fun acc idea ->
+             List.fold_left (fun acc2 sup ->
+               if List.mem sup acc2 then acc2 else sup :: acc2
+             ) acc (Idea.supervisors idea)
+           ) [] project_ideas
+         in
+         (* Split into avsm and others, preferring others first *)
+         let (others, avsm) = List.partition (fun sup ->
+           let handle = if String.length sup > 0 && sup.[0] = '@'
+             then String.sub sup 1 (String.length sup - 1)
+             else sup
+           in
+           handle <> "avsm"
+         ) all_supervisors in
+         (* Try supervisors in order: others first, then avsm *)
+         let ordered_supervisors = others @ avsm in
+         (* Try each supervisor's face image *)
+         let rec try_supervisors = function
+           | [] -> None
+           | sup :: rest ->
+             let handle = if String.length sup > 0 && sup.[0] = '@'
+               then String.sub sup 1 (String.length sup - 1)
+               else sup
+             in
+             (match Contact.find_by_handle (contacts entries) handle with
+              | Some c ->
+                (match lookup_image entries (Contact.handle c) with
+                 | Some img -> Some (smallest_webp_variant img)
+                 | None -> try_supervisors rest)
+              | None -> try_supervisors rest)
+         in
+         try_supervisors ordered_supervisors
+       | _ -> None)
 
 (** Get thumbnail URL for a note with slug_ent *)
 let thumbnail_note_with_ent entries note_item =
