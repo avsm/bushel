@@ -214,7 +214,7 @@ let build_link_graph entries =
 (* Export for visualization *)
 
 let to_json graph entries =
-  (* Build nodes *)
+  (* Build nodes from entries *)
   let entry_nodes = List.map (fun entry ->
     let slug = Entry.slug entry in
     let title = Entry.title entry in
@@ -226,6 +226,18 @@ let to_json graph entries =
       ("group", `String "entry");
     ]
   ) (Entry.all_entries entries) in
+
+  (* Build nodes from contacts *)
+  let contact_nodes = List.map (fun contact ->
+    let handle = Contact.handle contact in
+    let name = Contact.name contact in
+    `O [
+      ("id", `String handle);
+      ("title", `String name);
+      ("type", `String "contact");
+      ("group", `String "entry");
+    ]
+  ) (Entry.contacts entries) in
 
   (* Build domain nodes from external links *)
   let domain_map = Hashtbl.create 64 in
@@ -243,7 +255,7 @@ let to_json graph entries =
     ]) :: acc
   ) domain_map [] in
 
-  let all_nodes = entry_nodes @ domain_nodes in
+  let all_nodes = entry_nodes @ contact_nodes @ domain_nodes in
 
   (* Build internal links *)
   let internal_links_json = List.map (fun (link : internal_link) ->
