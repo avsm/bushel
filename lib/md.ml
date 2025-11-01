@@ -457,6 +457,72 @@ let scan_for_slugs entries md =
   Hashtbl.fold (fun k () a -> k :: a) slugs []
 ;;
 
+(** Validation mapper that collects broken references *)
+let make_validation_mapper entries broken_slugs broken_contacts =
+  let open Cmarkit in
+  fun _m ->
+    function
+    | Inline.Link (lb, _meta) ->
+      (* Check inline bushel links *)
+      (match link_target_is_bushel lb with
+       | Some (url, _title) ->
+         let s = strip_handle url in
+         if is_contact_slug url then
+           (* Validate contact handle *)
+           (match Contact.find_by_handle (Entry.contacts entries) s with
+            | None -> Hashtbl.replace broken_contacts url ()
+            | Some _ -> ())
+         else if is_bushel_slug url then
+           (* Validate entry slug *)
+           (match Entry.lookup entries s with
+            | None -> Hashtbl.replace broken_slugs url ()
+            | Some _ -> ())
+         else ();
+         Mapper.default
+       | None ->
+         (* Check referenced label links *)
+         (match Inline.Link.referenced_label lb with
+          | Some l ->
+            let m = Label.meta l in
+            (* Check for contact reference *)
+            (match Meta.find authorlink m with
+             | Some () ->
+               let slug = Label.key l in
+               let handle = strip_handle slug in
+               (match Contact.find_by_handle (Entry.contacts entries) handle with
+                | None -> Hashtbl.replace broken_contacts slug ()
+                | Some _ -> ());
+               Mapper.default
+             | None ->
+               (* Check for entry slug reference *)
+               (match Meta.find sluglink m with
+                | None -> Mapper.default
+                | Some () ->
+                  let slug = Label.key l in
+                  if is_bushel_slug slug then (
+                    let s = strip_handle slug in
+                    match Entry.lookup entries s with
+                     | None -> Hashtbl.replace broken_slugs slug ()
+                     | Some _ -> ()
+                  );
+                  Mapper.default))
+          | None -> Mapper.default))
+    | _ -> Mapper.default
+;;
+
+(** Validate all bushel references in markdown and return broken ones *)
+let validate_references entries md =
+  let open Cmarkit in
+  let broken_slugs = Hashtbl.create 7 in
+  let broken_contacts = Hashtbl.create 7 in
+  let doc = Doc.of_string ~strict:false ~resolver:with_bushel_links md in
+  let mapper = Mapper.make ~inline:(make_validation_mapper entries broken_slugs broken_contacts) () in
+  let _ = Mapper.map_doc mapper doc in
+  let slugs = Hashtbl.fold (fun k () a -> k :: a) broken_slugs [] in
+  let contacts = Hashtbl.fold (fun k () a -> k :: a) broken_contacts [] in
+  (slugs, contacts)
+;;
+
 (** Extract the first image URL from markdown text *)
 let extract_first_image md =
   let open Cmarkit in

@@ -41,6 +41,11 @@ val with_bushel_links
 
 val scan_for_slugs : Entry.t -> string -> string list
 
+(** Validate all bushel references in markdown and return broken ones.
+    Returns (broken_slugs, broken_contacts) where each list contains
+    the full reference string (e.g., ":missing-slug", "@unknown-handle") *)
+val validate_references : Entry.t -> string -> string list * string list
+
 (** Extract the first image URL from markdown text *)
 val extract_first_image : string -> string option
 

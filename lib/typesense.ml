@@ -222,14 +222,14 @@ let video_to_document entries (video : Video.t) =
   (* Resolve paper and project slugs to titles *)
   let paper_title = match Video.paper video with
     | Some slug ->
-        (match Entry.lookup entries (":" ^ slug) with
+        (match Entry.lookup entries slug with
          | Some entry -> Some (Entry.title entry)
          | None -> Some slug) (* Fallback to slug if not found *)
     | None -> None
   in
   let project_title = match Video.project video with
     | Some slug ->
-        (match Entry.lookup entries (":" ^ slug) with
+        (match Entry.lookup entries slug with
          | Some entry -> Some (Entry.title entry)
          | None -> Some slug) (* Fallback to slug if not found *)
     | None -> None

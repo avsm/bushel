@@ -192,6 +192,21 @@ let build_link_graph entries =
   (* Process all entries *)
   List.iter process_entry (Entry.all_entries entries);
 
+  (* Process slug_ent references from notes *)
+  let process_note_slug_ent note =
+    match Note.slug_ent note with
+    | Some target_slug ->
+      let source_slug = Note.slug note in
+      (* Look up the target entry by slug *)
+      (match Entry.lookup entries target_slug with
+       | Some target_entry ->
+         let target_type = entry_type_of_entry target_entry in
+         add_internal_link source_slug target_slug target_type
+       | None -> ())
+    | None -> ()
+  in
+  List.iter process_note_slug_ent (Entry.notes entries);
+
   (* Deduplicate links *)
   let module LinkSet = Set.Make(struct
     type t = internal_link
