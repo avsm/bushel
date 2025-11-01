@@ -66,51 +66,13 @@ let to_raw_string = function
 
 let pp ppf t = Fmt.string ppf (to_string t)
 
-let paper_author_tags entries p =
-  List.map
-    (fun a ->
-      let c = Contact.lookup_by_name (Entry.contacts entries) a in
-      let slug = Contact.handle c in
-      `Contact slug)
-    (Paper.authors p)
-;;
-
-let tags_of_ent entries ent : t list =
-  let year_tag =
-    let y, _, _ = Entry.date ent in
-    `Year y
-  in
-  let body_slugs = List.map of_string (Md.scan_for_slugs entries (Entry.body ent)) in
-  let to_tag a : t = `Slug a in
-  let to_sort a : t = `Set a in
-  let tags =
-    match ent with
-    | `Paper p when p.Paper.latest ->
-      (to_sort "papers" :: paper_author_tags entries p) @ of_string_list @@ Paper.tags p
-    | `Paper p -> paper_author_tags entries p @ of_string_list @@ Paper.tags p
-    | `Video v ->
-      let tags = of_string_list v.Video.tags in
-      let base =
-        to_sort "videos"
-        ::
-        (match Video.paper v, Video.project v with
-         | Some a, None -> to_tag a :: tags
-         | None, Some b -> to_tag b :: tags
-         | Some a, Some b -> to_tag a :: to_tag b :: tags
-         | None, None -> tags)
-      in
-      if v.Video.talk then to_sort "talks" :: base else base
-    | `Project p -> to_sort "projects" :: (of_string_list @@ Project.tags p)
-    | `Note n -> to_sort "notes" :: (of_string_list @@ Note.tags n)
-    | `Idea i ->
-      (to_sort "ideas"
-       :: of_string (Idea.status_to_tag i.Idea.status)
-       :: of_string (Idea.level_to_tag i.Idea.level)
-       :: to_tag i.Idea.project
-       :: of_string_list i.Idea.tags)
-      @ List.map (fun a -> `Contact a) (Idea.supervisors i @ Idea.students i)
-  in
-  (to_tag (Entry.slug ent) :: year_tag :: body_slugs) @ tags
+let tags_of_ent _entries ent : t list =
+  match ent with
+  | `Paper p -> of_string_list @@ Paper.tags p
+  | `Video v -> of_string_list v.Video.tags
+  | `Project p -> of_string_list @@ Project.tags p
+  | `Note n -> of_string_list @@ Note.tags n
+  | `Idea i -> of_string_list i.Idea.tags
 ;;
 
 let mentions tags =

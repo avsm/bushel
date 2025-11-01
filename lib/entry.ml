@@ -261,6 +261,35 @@ let extract_first_image md =
   !found_image
 ;;
 
+(** Extract the first video slug from markdown text by looking for bushel video links *)
+let extract_first_video entries md =
+  let open Cmarkit in
+  let doc = Doc.of_string md in
+  let found_video = ref None in
+
+  let find_video_in_inline _mapper = function
+    | Inline.Link (link, _) ->
+      (match Inline.Link.reference link with
+       | `Inline (ld, _) ->
+         (match Link_definition.dest ld with
+          | Some (url, _) when !found_video = None && String.starts_with ~prefix:":" url ->
+            (* Check if this is a video slug *)
+            let slug = String.sub url 1 (String.length url - 1) in
+            (match lookup entries slug with
+             | Some (`Video v) ->
+               found_video := Some (Video.uuid v);
+               Mapper.default
+             | _ -> Mapper.default)
+          | _ -> Mapper.default)
+       | _ -> Mapper.default)
+    | _ -> Mapper.default
+  in
+
+  let mapper = Mapper.make ~inline:find_video_in_inline () in
+  let _ = Mapper.map_doc mapper doc in
+  !found_video
+;;
+
 (** Look up an image in the srcsetter list by slug *)
 let lookup_image { images; _ } slug =
   List.find_opt (fun img -> Srcsetter.slug img = slug) images
@@ -354,7 +383,7 @@ let rec thumbnail_slug entries = function
        | None -> None)
 
   | `Note n ->
-    (* Use titleimage if set, otherwise extract first image from body, otherwise use slug_ent's thumbnail *)
+    (* Use titleimage if set, otherwise extract first image from body, then try video, otherwise use slug_ent's thumbnail *)
     (match Note.titleimage n with
      | Some url ->
        (* If it's a bushel image slug (no scheme), use it; otherwise treat as external *)
@@ -371,13 +400,17 @@ let rec thumbnail_slug entries = function
          Some (String.sub url 1 (String.length url - 1))
        | Some _ -> None
        | None ->
-         (* Fallback to slug_ent's thumbnail if present *)
-         match Note.slug_ent n with
-         | Some slug_ent ->
-           (match lookup entries slug_ent with
-            | Some entry -> thumbnail_slug entries entry
-            | None -> None)
-         | None -> None)
+         (* Try extracting first video from markdown body *)
+         match extract_first_video entries (Note.body n) with
+         | Some video_uuid -> Some video_uuid
+         | None ->
+           (* Fallback to slug_ent's thumbnail if present *)
+           match Note.slug_ent n with
+           | Some slug_ent ->
+             (match lookup entries slug_ent with
+              | Some entry -> thumbnail_slug entries entry
+              | None -> None)
+           | None -> None)
 
 (** Get thumbnail URL for an entry with fallbacks - resolved through srcsetter *)
 let thumbnail entries entry =

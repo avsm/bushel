@@ -1,4 +1,21 @@
-(** Bushel mappers for our Markdown extensions and utilities *)
+(** Bushel mappers for our Markdown extensions and utilities
+
+    This module provides mappers to convert Bushel markdown extensions to different
+    output formats. There are two main mappers:
+
+    1. {!make_bushel_inline_mapper} - Full sidenote mode for the main website
+       - Converts Bushel links to interactive sidenotes
+       - Includes entry previews, contact info, footnotes
+       - Used for the main site HTML rendering
+
+    2. {!make_bushel_link_only_mapper} - Plain HTML mode for feeds and simple output
+       - Converts Bushel links to regular HTML <a> tags
+       - Automatically cleans up link text that contains Bushel slugs
+       - Used for Atom feeds, RSS, search indexing
+       - Images need .webp extension added (handled by calling code)
+
+    For plain text output (search, LLM), use {!markdown_to_plaintext}.
+*)
 
 (* Sidenote data types - reuse existing Bushel types *)
 type sidenote_data =
@@ -49,7 +66,11 @@ let strip_handle s =
 
 (* FIXME use Tags *)
 let is_bushel_slug = String.starts_with ~prefix:":"
-let is_tag_slug = String.starts_with ~prefix:"##"
+let is_tag_slug link =
+  String.starts_with ~prefix:"##" link &&
+  not (String.starts_with ~prefix:"###" link)
+
+let is_type_filter_slug = String.starts_with ~prefix:"###"
 let is_contact_slug = String.starts_with ~prefix:"@"
 
 let text_of_inline lb =
@@ -207,7 +228,15 @@ let make_bushel_link_only_mapper _defs entries =
        | Some (url, title) ->
          let s = strip_handle url in
          let dest = Entry.lookup_site_url entries s in
-         let txt = Inline.Text (title, meta) in
+         (* If title is itself a Bushel slug, use the entry title instead *)
+         let link_text =
+           if is_bushel_slug title then
+             match Entry.lookup entries (strip_handle title) with
+             | Some ent -> Entry.title ent
+             | None -> title
+           else title
+         in
+         let txt = Inline.Text (link_text, meta) in
          let ld = Link_definition.make ~dest:(dest, meta) () in
          let ll = `Inline (ld, meta) in
          let ld = Inline.Link.make txt ll in
@@ -250,7 +279,16 @@ let make_bushel_link_only_mapper _defs entries =
                     let s = strip_handle slug in
                     let dest = Entry.lookup_site_url entries s in
                     let title = Inline.Link.text lb |> text_of_inline in
-                    let txt = Inline.Text (title, meta) in
+                    (* If link text is itself a Bushel slug, use the entry title instead *)
+                    let link_text =
+                      let trimmed = String.trim title in
+                      if is_bushel_slug trimmed then
+                        match Entry.lookup entries (strip_handle trimmed) with
+                        | Some ent -> Entry.title ent
+                        | None -> title
+                      else title
+                    in
+                    let txt = Inline.Text (link_text, meta) in
                     let ld = Link_definition.make ~dest:(dest, meta) () in
                     let ll = `Inline (ld, meta) in
                     let ld = Inline.Link.make txt ll in

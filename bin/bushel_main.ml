@@ -64,6 +64,9 @@ let ideas_cmd = Bushel_ideas.cmd
 (* Info command *)
 let info_cmd = Bushel_info.cmd
 
+(* Missing command *)
+let missing_cmd = Bushel_missing.cmd
+
 (* Main command *)
 let bushel_cmd =
   let doc = "Bushel content management toolkit" in
@@ -90,6 +93,7 @@ let bushel_cmd =
     ideas_cmd;
     info_cmd;
     links_cmd;
+    missing_cmd;
     obsidian_cmd;
     paper_cmd;
     paper_classify_cmd;

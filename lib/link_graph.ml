@@ -176,6 +176,9 @@ let build_link_graph entries =
       else if Md.is_tag_slug link then
         (* Skip tag links *)
         ()
+      else if Md.is_type_filter_slug link then
+        (* Skip type filter links *)
+        ()
       else if String.starts_with ~prefix:"http://" link ||
               String.starts_with ~prefix:"https://" link then
         (* External link *)
