@@ -6,11 +6,6 @@ type entry =
   | `Note of Note.t
   ]
 
-type feed =
-  [ `Note of Note.t * entry  (* Note with slug_ent paired with its referenced entry *)
-  | `Entry of entry          (* Standalone entry or note without slug_ent *)
-  ]
-
 type slugs = (string, entry) Hashtbl.t
 
 type t =
@@ -184,36 +179,9 @@ let year x =
   | y, _, _ -> y
 ;;
 
-let feed_date (x : feed) =
-  match x with
-  | `Note (n, _) -> Note.date n
-  | `Entry e -> date e
-;;
-
-let feed_datetime x = feed_date x |> Ptime.of_date |> Option.get
-
-let feed_title (x : feed) =
-  match x with
-  | `Note (n, _) -> Note.title n
-  | `Entry e -> title e
-;;
-
-let feed_url (x : feed) =
-  match x with
-  | `Note (n, _) -> "/notes/" ^ Note.slug n
-  | `Entry e -> site_url e
-;;
-
 let is_index_entry = function
   | `Note { Note.index_page; _ } -> index_page
   | _ -> false
-;;
-
-let feed_compare b a =
-  let datetime v = Option.get (Ptime.of_date v) in
-  let da = datetime (feed_date a) in
-  let db = datetime (feed_date b) in
-  if da = db then compare (feed_title a) (feed_title b) else Ptime.compare da db
 ;;
 
 let notes_for_slug { notes; _ } slug =

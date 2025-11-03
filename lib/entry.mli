@@ -50,17 +50,6 @@ val datetime : entry -> Ptime.t
 val year : entry -> int
 val synopsis : entry -> string option
 
-(* FIXME move to separate module *)
-type feed =
-  [ `Entry of entry
-  | `Note of Note.t * entry
-  ]
-
-val feed_date : feed -> Ptime.date
-val feed_datetime : feed -> Ptime.t
-val feed_title : feed -> string
-val feed_url : feed -> string
-val feed_compare : feed -> feed -> int
 val is_index_entry : entry -> bool
 val notes_for_slug : t -> string -> Note.t list
 val all_entries : t -> entry list
