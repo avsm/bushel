@@ -12,6 +12,7 @@ module Srcsetter = Srcsetter
 module Md = Md
 module Typesense = Typesense
 module Link_graph = Link_graph
+module Description = Description
 
 let map_md base subdir fn =
   let dir = base ^ "/data/" ^ subdir in

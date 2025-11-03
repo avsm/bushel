@@ -385,14 +385,9 @@ let rec thumbnail_slug entries = function
   | `Note n ->
     (* Use titleimage if set, otherwise extract first image from body, then try video, otherwise use slug_ent's thumbnail *)
     (match Note.titleimage n with
-     | Some url ->
-       (* If it's a bushel image slug (no scheme), use it; otherwise treat as external *)
-       if String.contains url ':' && not (String.starts_with ~prefix:":" url) then
-         None  (* External URL, not a bushel image *)
-       else
-         Some (if String.starts_with ~prefix:":" url
-               then String.sub url 1 (String.length url - 1)
-               else url)
+     | Some slug ->
+       (* Always treat titleimage as a bushel slug (without ':' prefix) *)
+       Some slug
      | None ->
        (* Extract first image from markdown body *)
        match extract_first_image (Note.body n) with

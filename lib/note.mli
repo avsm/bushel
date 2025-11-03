@@ -8,6 +8,7 @@ type t =
   ; updated : Ptime.date option
   ; sidebar : string option
   ; index_page : bool
+  ; perma : bool
   ; synopsis: string option
   ; titleimage: string option
   ; via : (string * string) option
@@ -29,6 +30,7 @@ val slug : t -> string
 val body : t -> string
 val title : t -> string
 val draft : t -> bool
+val perma : t -> bool
 val synopsis : t -> string option
 val titleimage : t -> string option
 val slug_ent : t -> string option

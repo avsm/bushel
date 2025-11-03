@@ -14,6 +14,7 @@ module Md = Md
 module Srcsetter = Srcsetter
 module Typesense = Typesense
 module Link_graph = Link_graph
+module Description = Description
 
 val load_contacts : string -> Contact.ts
 val load_projects : string -> Project.ts

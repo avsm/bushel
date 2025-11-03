@@ -207,6 +207,20 @@ let build_link_graph entries =
   in
   List.iter process_note_slug_ent (Entry.notes entries);
 
+  (* Process projects: field from papers *)
+  let process_paper_projects paper =
+    let source_slug = Paper.slug paper in
+    let project_slugs = Paper.project_slugs paper in
+    List.iter (fun project_slug ->
+      (* Verify the project exists *)
+      match Entry.lookup entries project_slug with
+      | Some (`Project _) ->
+        add_internal_link source_slug project_slug `Project
+      | _ -> ()
+    ) project_slugs
+  in
+  List.iter process_paper_projects (Entry.papers entries);
+
   (* Deduplicate links *)
   let module LinkSet = Set.Make(struct
     type t = internal_link
