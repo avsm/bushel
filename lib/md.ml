@@ -589,15 +589,15 @@ let markdown_to_plaintext _entries text =
   block_to_text blocks
 ;;
 
-(** Extract all links from markdown text *)
+(** Extract all links from markdown text, including from images *)
 let extract_all_links text =
   let open Cmarkit in
   let doc = Doc.of_string ~resolver:with_bushel_links text in
   let links = ref [] in
 
   let find_links_in_inline _mapper = function
-    | Inline.Link (lb, _) ->
-      (* Check for inline link destination *)
+    | Inline.Link (lb, _) | Inline.Image (lb, _) ->
+      (* Check for inline link/image destination *)
       (match Inline.Link.reference lb with
        | `Inline (ld, _) ->
          (match Link_definition.dest ld with
@@ -606,7 +606,7 @@ let extract_all_links text =
             Mapper.default
           | None -> Mapper.default)
        | `Ref _ ->
-         (* For reference-style links, check if it has a referenced label *)
+         (* For reference-style links/images, check if it has a referenced label *)
          (match Inline.Link.referenced_label lb with
           | Some l ->
             let key = Label.key l in

@@ -58,5 +58,5 @@ val is_type_filter_slug : string -> bool
 val is_contact_slug : string -> bool
 val strip_handle : string -> string
 
-(** Extract all links from markdown text (internal and external) *)
+(** Extract all links from markdown text, including from images (internal and external) *)
 val extract_all_links : string -> string list
