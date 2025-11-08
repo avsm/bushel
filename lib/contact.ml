@@ -7,18 +7,19 @@ type t =
   ; twitter : string option
   ; bluesky : string option
   ; mastodon : string option
+  ; orcid : string option
   ; url : string option
   ; atom : string list option
   }
 
 type ts = t list
 
-let v ?email ?github ?twitter ?bluesky ?mastodon ?icon ?url ?atom handle names =
-  { names; handle; email; github; twitter; bluesky; mastodon; url; icon; atom }
+let v ?email ?github ?twitter ?bluesky ?mastodon ?orcid ?icon ?url ?atom handle names =
+  { names; handle; email; github; twitter; bluesky; mastodon; orcid; url; icon; atom }
 ;;
 
-let make names email icon github twitter bluesky mastodon url atom =
-  v ?email ?github ?twitter ?bluesky ?mastodon ?icon ?url ?atom "" names
+let make names email icon github twitter bluesky mastodon orcid url atom =
+  v ?email ?github ?twitter ?bluesky ?mastodon ?orcid ?icon ?url ?atom "" names
 ;;
 
 let names { names; _ } = names
@@ -30,6 +31,7 @@ let github { github; _ } = github
 let twitter { twitter; _ } = twitter
 let bluesky { bluesky; _ } = bluesky
 let mastodon { mastodon; _ } = mastodon
+let orcid { orcid; _ } = orcid
 let url { url; _ } = url
 let atom { atom; _ } = atom
 
@@ -45,6 +47,7 @@ let json_t =
   |> mem_opt "twitter" (some string) ~enc:twitter
   |> mem_opt "bluesky" (some string) ~enc:bluesky
   |> mem_opt "mastodon" (some string) ~enc:mastodon
+  |> mem_opt "orcid" (some string) ~enc:orcid
   |> mem_opt "url" (some string) ~enc:url
   |> mem_opt "atom" (some (list string)) ~enc:atom
   |> finish
@@ -122,6 +125,7 @@ let typesense_schema =
       [("name", string "twitter"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "bluesky"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "mastodon"); ("type", string "string[]"); ("optional", bool true)];
+      [("name", string "orcid"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "url"); ("type", string "string[]"); ("optional", bool true)];
       [("name", string "atom"); ("type", string "string[]"); ("optional", bool true)];
     ]);
@@ -151,6 +155,9 @@ let pp ppf c =
    | None -> ());
   (match mastodon c with
    | Some m -> pf ppf "%a: %a@," (styled `Bold string) "Mastodon" string m
+   | None -> ());
+  (match orcid c with
+   | Some o -> pf ppf "%a: https://orcid.org/%a@," (styled `Bold string) "ORCID" string o
    | None -> ());
   (match url c with
    | Some u -> pf ppf "%a: %a@," (styled `Bold string) "URL" string u

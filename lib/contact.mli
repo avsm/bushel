@@ -11,6 +11,7 @@ val github : t -> string option
 val twitter : t -> string option
 val bluesky : t -> string option
 val mastodon : t -> string option
+val orcid : t -> string option
 val url : t -> string option
 val atom : t -> string list option
 val best_url : t -> string option
