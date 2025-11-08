@@ -9,6 +9,7 @@ type t =
   ; sidebar : string option
   ; index_page : bool
   ; perma : bool
+  ; doi : string option
   ; synopsis: string option
   ; titleimage: string option
   ; via : (string * string) option
@@ -31,6 +32,7 @@ val body : t -> string
 val title : t -> string
 val draft : t -> bool
 val perma : t -> bool
+val doi : t -> string option
 val synopsis : t -> string option
 val titleimage : t -> string option
 val slug_ent : t -> string option

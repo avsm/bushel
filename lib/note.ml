@@ -9,6 +9,7 @@ type t =
   ; sidebar : string option
   ; index_page : bool
   ; perma : bool               (* Permanent article that will receive a DOI *)
+  ; doi : string option        (* DOI identifier for permanent articles *)
   ; synopsis: string option
   ; titleimage: string option
   ; via : (string * string) option
@@ -46,6 +47,7 @@ let sidebar { sidebar; _ } = sidebar
 let synopsis { synopsis; _ } = synopsis
 let draft { draft; _ } = draft
 let perma { perma; _ } = perma
+let doi { doi; _ } = doi
 let titleimage { titleimage; _ } = titleimage
 let slug_ent { slug_ent; _ } = slug_ent
 let source { source; _ } = source
@@ -140,7 +142,12 @@ let of_md fname =
       | Some (`String v) -> Some v
       | _ -> None
     in
-    { title; draft; date; slug; synopsis; titleimage; index_page; perma; body; via; updated; tags; sidebar; slug_ent; source; url; author; category }
+    let doi =
+      match Jekyll_format.find "doi" fields with
+      | Some (`String v) -> Some v
+      | _ -> None
+    in
+    { title; draft; date; slug; synopsis; titleimage; index_page; perma; doi; body; via; updated; tags; sidebar; slug_ent; source; url; author; category }
 
 (* TODO:claude *)
 let typesense_schema =
@@ -189,6 +196,9 @@ let pp ppf n =
   pf ppf "%a: %b@," (styled `Bold string) "Draft" (draft n);
   pf ppf "%a: %b@," (styled `Bold string) "Index Page" n.index_page;
   pf ppf "%a: %b@," (styled `Bold string) "Perma" (perma n);
+  (match doi n with
+   | Some d -> pf ppf "%a: %a@," (styled `Bold string) "DOI" string d
+   | None -> ());
   (match synopsis n with
    | Some syn -> pf ppf "%a: %a@," (styled `Bold string) "Synopsis" string syn
    | None -> ());
