@@ -717,6 +717,56 @@ let note_references entries default_author note =
     | _ -> ()
   ) slugs;
 
+  (* Scan body for external DOI URLs *)
+  let body = Note.body note in
+  let doi_url_pattern = Re.Perl.compile_pat "https?://(?:dx\\.)?doi\\.org/([^)\\s\"'>]+)" in
+  let matches = Re.all doi_url_pattern body in
+  List.iter (fun group ->
+    try
+      let encoded_doi = Re.Group.get group 1 in
+      (* URL decode the DOI *)
+      let doi = Uri.pct_decode encoded_doi in
+      (* Check if doi already exists in refs *)
+      if not (List.exists (fun (d, _, _) -> d = doi) !refs) then
+        (* Try to find the paper/note with this DOI in our entries *)
+        let found = ref false in
+        let all_entries = Entry.all_entries entries in
+        List.iter (fun entry ->
+          if !found then () else
+          match entry with
+          | `Paper p ->
+            (match Paper.doi p with
+             | Some entry_doi when entry_doi = doi ->
+               let authors = Paper.authors p in
+               let year = Paper.year p in
+               let title = Paper.title p in
+               let publisher = Some (Paper.publisher p) in
+               let citation = format_citation ~authors ~year ~title ~publisher in
+               refs := (doi, citation, true) :: !refs;
+               found := true
+             | _ -> ())
+          | `Note n ->
+            (match Note.doi n with
+             | Some entry_doi when entry_doi = doi ->
+               let authors = match Note.author n with
+                 | Some a -> [a]
+                 | None -> [Contact.name default_author]
+               in
+               let (year, _, _) = Note.date n in
+               let title = Note.title n in
+               let publisher = None in
+               let citation = format_citation ~authors ~year ~title ~publisher in
+               refs := (doi, citation, false) :: !refs;
+               found := true
+             | _ -> ())
+          | _ -> ()
+        ) all_entries;
+        (* If not found in our entries, add a minimal citation with just the DOI *)
+        if not !found then
+          refs := (doi, doi, true) :: !refs
+    with _ -> ()
+  ) matches;
+
   List.rev !refs
 ;;
 
