@@ -13,6 +13,7 @@ module Md = Md
 module Typesense = Typesense
 module Link_graph = Link_graph
 module Description = Description
+module Doi_entry = Doi_entry
 
 let map_md base subdir fn =
   let dir = base ^ "/data/" ^ subdir in

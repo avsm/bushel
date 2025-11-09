@@ -16,6 +16,7 @@ val papers : t -> Paper.ts
 val notes : t -> Note.ts
 val projects : t -> Project.ts
 val images : t -> Srcsetter.ts
+val doi_entries : t -> Doi_entry.ts
 val data_dir : t -> string
 
 val v

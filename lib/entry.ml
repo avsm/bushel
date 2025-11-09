@@ -18,6 +18,7 @@ type t =
   ; videos : Video.ts
   ; contacts : Contact.ts
   ; images : Srcsetter.ts
+  ; doi_entries : Doi_entry.ts
   ; data_dir : string
   }
 
@@ -28,6 +29,7 @@ let papers { papers; _ } = papers
 let notes { notes; _ } = notes
 let projects { projects; _ } = projects
 let images { images; _ } = images
+let doi_entries { doi_entries; _ } = doi_entries
 let data_dir { data_dir; _ } = data_dir
 
 let v ~papers ~notes ~projects ~ideas ~videos ~contacts ~images ~data_dir =
@@ -38,7 +40,10 @@ let v ~papers ~notes ~projects ~ideas ~videos ~contacts ~images ~data_dir =
   List.iter (fun i -> Hashtbl.add slugs i.Idea.slug (`Idea i)) ideas;
   List.iter (fun v -> Hashtbl.add slugs v.Video.slug (`Video v)) videos;
   List.iter (fun p -> Hashtbl.add slugs p.Paper.slug (`Paper p)) papers;
-  { slugs; papers; old_papers; notes; projects; ideas; videos; images; contacts; data_dir }
+  (* Load DOI entries from doi.yml *)
+  let doi_yml_path = Filename.concat data_dir "doi.yml" in
+  let doi_entries = Doi_entry.load doi_yml_path in
+  { slugs; papers; old_papers; notes; projects; ideas; videos; images; contacts; doi_entries; data_dir }
 ;;
 
 let lookup { slugs; _ } slug = Hashtbl.find_opt slugs slug

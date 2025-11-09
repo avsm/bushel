@@ -70,6 +70,9 @@ let missing_cmd = Bushel_missing.cmd
 (* Note DOI command *)
 let note_doi_cmd = Bushel_note_doi.cmd
 
+(* DOI resolve command *)
+let doi_cmd = Bushel_doi.cmd
+
 (* Main command *)
 let bushel_cmd =
   let doc = "Bushel content management toolkit" in
@@ -92,6 +95,7 @@ let bushel_cmd =
   let info = Cmd.info "bushel" ~version ~doc ~sdocs ~man in
   Cmd.group info [
     bibtex_cmd;
+    doi_cmd;
     faces_cmd;
     ideas_cmd;
     info_cmd;
