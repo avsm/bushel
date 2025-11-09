@@ -14,6 +14,7 @@ type t = {
   resolved_at: string;
   source_urls: string list;
   status: status;
+  ignore: bool;
 }
 
 type ts = t list
@@ -24,7 +25,7 @@ let create_resolved ~doi ~title ~authors ~year ~bibtype ~publisher ?(source_urls
     let rfc3339 = Ptime.to_rfc3339 ~space:false ~frac_s:0 now in
     String.sub rfc3339 0 10  (* Extract YYYY-MM-DD *)
   in
-  { doi; title; authors; year; bibtype; publisher; resolved_at; source_urls; status = Resolved }
+  { doi; title; authors; year; bibtype; publisher; resolved_at; source_urls; status = Resolved; ignore = false }
 
 let create_failed ~doi ~error ?(source_urls=[]) () =
   let resolved_at =
@@ -33,15 +34,15 @@ let create_failed ~doi ~error ?(source_urls=[]) () =
     String.sub rfc3339 0 10  (* Extract YYYY-MM-DD *)
   in
   { doi; title = ""; authors = []; year = 0; bibtype = ""; publisher = "";
-    resolved_at; source_urls; status = Failed error }
+    resolved_at; source_urls; status = Failed error; ignore = false }
 
 let merge_entries old_entry new_entry =
   (* Combine source_urls, removing duplicates *)
   let combined_urls =
     List.sort_uniq String.compare (old_entry.source_urls @ new_entry.source_urls)
   in
-  (* Use new_entry's data but with combined URLs *)
-  { new_entry with source_urls = combined_urls }
+  (* Use new_entry's data but with combined URLs and preserve ignore flag from old entry *)
+  { new_entry with source_urls = combined_urls; ignore = old_entry.ignore }
 
 let to_yaml_value entry =
   let status_field = match entry.status with
@@ -52,10 +53,11 @@ let to_yaml_value entry =
     | [] -> []
     | urls -> [("source_urls", `A (List.map (fun url -> `String url) urls))]
   in
+  let ignore_field = if entry.ignore then [("ignore", `Bool true)] else [] in
   let fields = [
     ("doi", `String entry.doi);
     ("resolved_at", `String entry.resolved_at);
-  ] @ status_field @ source_urls_field in
+  ] @ status_field @ source_urls_field @ ignore_field in
   let fields = match entry.status with
     | Resolved ->
       fields @ [
@@ -83,18 +85,19 @@ let of_yaml_value v =
           [single_url]
         with _ -> []
     in
+    let ignore = try J.find v ["ignore"] |> J.get_bool with _ -> false in
     let error = try Some (J.find v ["error"] |> J.get_string) with _ -> None in
     match error with
     | Some err ->
       { doi; title = ""; authors = []; year = 0; bibtype = ""; publisher = "";
-        resolved_at; source_urls; status = Failed err }
+        resolved_at; source_urls; status = Failed err; ignore }
     | None ->
       let title = J.find v ["title"] |> J.get_string in
       let authors = J.find v ["authors"] |> J.get_list J.get_string in
       let year = J.find v ["year"] |> J.get_float |> int_of_float in
       let bibtype = J.find v ["bibtype"] |> J.get_string in
       let publisher = J.find v ["publisher"] |> J.get_string in
-      { doi; title; authors; year; bibtype; publisher; resolved_at; source_urls; status = Resolved }
+      { doi; title; authors; year; bibtype; publisher; resolved_at; source_urls; status = Resolved; ignore }
   with e ->
     Printf.eprintf "Failed to parse DOI entry: %s\n%!" (Printexc.to_string e);
     failwith "Invalid DOI entry in YAML"
@@ -128,9 +131,17 @@ let to_map entries =
   map
 
 let find_by_doi entries doi =
-  List.find_opt (fun entry -> entry.doi = doi) entries
+  List.find_opt (fun entry -> not entry.ignore && entry.doi = doi) entries
 
 let find_by_url entries url =
+  List.find_opt (fun entry ->
+    not entry.ignore && List.mem url entry.source_urls
+  ) entries
+
+let find_by_doi_including_ignored entries doi =
+  List.find_opt (fun entry -> entry.doi = doi) entries
+
+let find_by_url_including_ignored entries url =
   List.find_opt (fun entry ->
     List.mem url entry.source_urls
   ) entries

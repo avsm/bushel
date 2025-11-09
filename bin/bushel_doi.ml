@@ -21,10 +21,10 @@ let extract_dois_from_notes notes =
   ) notes;
   !dois
 
-(* Extract publisher URLs from notes (Elsevier, Nature) *)
+(* Extract publisher URLs from notes (Elsevier, Nature, ACM, Sage, UPenn, Springer, Taylor & Francis) *)
 let extract_publisher_urls_from_notes notes =
-  (* Matches linkinghub.elsevier.com and www.nature.com or nature.com URLs *)
-  let publisher_pattern = Re.Perl.compile_pat "https?://(?:www\\.)?(?:linkinghub\\.elsevier\\.com|nature\\.com)/[^)\\s\"'>]+" in
+  (* Matches publisher URLs: linkinghub.elsevier.com, nature.com, journals.sagepub.com, garfield.library.upenn.edu, link.springer.com, tandfonline.com/doi, and dl.acm.org/doi/10.* URLs *)
+  let publisher_pattern = Re.Perl.compile_pat "https?://(?:(?:www\\.)?(?:linkinghub\\.elsevier\\.com|nature\\.com|journals\\.sagepub\\.com|garfield\\.library\\.upenn\\.edu|link\\.springer\\.com)/[^)\\s\"'>]+|(?:dl\\.acm\\.org|(?:www\\.)?tandfonline\\.com)/doi(?:/pdf)?/10\\.[^)\\s\"'>]+)" in
   let urls = ref [] in
   List.iter (fun note ->
     let body = Bushel.Note.body note in
@@ -124,14 +124,25 @@ let resolve_url zt ~verbose url =
               )
             with _ -> []
             in
-            (* Extract year from Zotero's "date" field (e.g., "2025-07" or "2024-10") *)
+            (* Extract year from Zotero's "date" field *)
+            (* Handles both ISO format "2025-07" and text format "November 28, 2023" *)
             let year = try
               let date_str = J.find item ["date"] |> J.get_string in
-              (* Try to extract year from date string like "2025-07" *)
+              (* First try splitting on '-' for ISO dates like "2025-07" or "2024-11-04" *)
               let parts = String.split_on_char '-' date_str in
               match parts with
-              | year_str :: _ -> int_of_string year_str
-              | _ -> 0
+              | year_str :: _ when String.length year_str = 4 ->
+                (try int_of_string year_str with _ -> 0)
+              | _ ->
+                (* Try splitting on space and comma for dates like "November 28, 2023" *)
+                let space_parts = String.split_on_char ' ' date_str in
+                let year_candidate = List.find_opt (fun s ->
+                  let s = String.trim (String.map (fun c -> if c = ',' then ' ' else c) s) in
+                  String.length s = 4 && String.for_all (function '0'..'9' -> true | _ -> false) s
+                ) space_parts in
+                (match year_candidate with
+                 | Some year_str -> int_of_string (String.trim year_str)
+                 | None -> 0)
             with _ -> 0
             in
             (* Extract type/bibtype from Zotero's "itemType" field *)
@@ -178,7 +189,7 @@ let run base_dir force verbose =
   (* Filter DOIs that need resolution *)
   let dois_to_resolve =
     List.filter (fun doi ->
-      match Bushel.Doi_entry.find_by_doi existing_entries doi with
+      match Bushel.Doi_entry.find_by_doi_including_ignored existing_entries doi with
       | Some _ when not force ->
         Printf.printf "Skipping DOI %s (already cached)\n%!" doi;
         false
@@ -193,7 +204,7 @@ let run base_dir force verbose =
   (* Filter URLs that need resolution *)
   let urls_to_resolve =
     List.filter (fun url ->
-      match Bushel.Doi_entry.find_by_url existing_entries url with
+      match Bushel.Doi_entry.find_by_url_including_ignored existing_entries url with
       | Some _ when not force ->
         Printf.printf "Skipping URL %s (already cached)\n%!" url;
         false
@@ -242,9 +253,9 @@ let run base_dir force verbose =
         (* Merge new entries with existing ones, combining source_urls *)
         let merged = ref existing_entries in
         List.iter (fun new_entry ->
-          match Bushel.Doi_entry.find_by_doi !merged new_entry.Bushel.Doi_entry.doi with
+          match Bushel.Doi_entry.find_by_doi_including_ignored !merged new_entry.Bushel.Doi_entry.doi with
           | Some existing_entry ->
-            (* DOI already exists - merge the entries by combining source_urls *)
+            (* DOI already exists - merge the entries by combining source_urls and preserving ignore flag *)
             let combined = Bushel.Doi_entry.merge_entries existing_entry new_entry in
             merged := combined :: (List.filter (fun e -> e.Bushel.Doi_entry.doi <> new_entry.Bushel.Doi_entry.doi) !merged)
           | None ->

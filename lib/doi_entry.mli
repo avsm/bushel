@@ -14,6 +14,7 @@ type t = {
   resolved_at: string;  (** ISO date when resolved *)
   source_urls: string list;  (** All URLs that resolve to this DOI (publisher links, doi.org URLs, etc) *)
   status: status;
+  ignore: bool;  (** If true, skip this entry when looking up references *)
 }
 
 type ts = t list
@@ -27,11 +28,17 @@ val save : string -> ts -> unit
 (** Convert list to hashtable for fast lookup by DOI *)
 val to_map : ts -> (string, t) Hashtbl.t
 
-(** Find entry by DOI *)
+(** Find entry by DOI (excludes ignored entries) *)
 val find_by_doi : ts -> string -> t option
 
-(** Find entry by source URL (searches through all source_urls) *)
+(** Find entry by source URL (searches through all source_urls, excludes ignored entries) *)
 val find_by_url : ts -> string -> t option
+
+(** Find entry by DOI including ignored entries (for resolution checks) *)
+val find_by_doi_including_ignored : ts -> string -> t option
+
+(** Find entry by source URL including ignored entries (for resolution checks) *)
+val find_by_url_including_ignored : ts -> string -> t option
 
 (** Create a new resolved entry *)
 val create_resolved : doi:string -> title:string -> authors:string list ->
