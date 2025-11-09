@@ -60,3 +60,9 @@ val strip_handle : string -> string
 
 (** Extract all links from markdown text, including from images (internal and external) *)
 val extract_all_links : string -> string list
+
+(** Extract references (papers/notes with DOIs) from a note.
+    Returns a list of (DOI, citation_string, is_paper) tuples where is_paper
+    indicates if the reference is to a paper (true) or a note (false).
+    Citation format: "Last, First (Year). Title. Publisher. https://doi.org/the/doi" *)
+val note_references : Entry.t -> Contact.t -> Note.t -> (string * string * bool) list

@@ -627,3 +627,96 @@ let extract_all_links text =
   StringSet.elements (StringSet.of_list !links)
 ;;
 
+(* Extract references (papers/notes with DOIs) from a note *)
+let note_references entries default_author note =
+  let refs = ref [] in
+
+  (* Helper to format author name: extract last name from full name *)
+  let format_author_last name =
+    let parts = String.split_on_char ' ' name in
+    List.nth parts (List.length parts - 1)
+  in
+
+  (* Helper to format a citation *)
+  let format_citation ~authors ~year ~title ~publisher =
+    let author_str = match authors with
+      | [] -> ""
+      | [author] -> format_author_last author ^ " "
+      | author :: _ -> (format_author_last author) ^ " et al "
+    in
+    let pub_str = match publisher with
+      | None | Some "" -> ""
+      | Some p -> p ^ ". "
+    in
+    Printf.sprintf "%s(%d). %s. %s" author_str year title pub_str
+  in
+
+  (* Check slug_ent if it exists *)
+  (match Note.slug_ent note with
+   | Some slug ->
+     (match Entry.lookup entries slug with
+      | Some (`Paper p) ->
+        (match Paper.doi p with
+         | Some doi ->
+           let authors = Paper.authors p in
+           let year = Paper.year p in
+           let title = Paper.title p in
+           let publisher = Some (Paper.publisher p) in
+           let citation = format_citation ~authors ~year ~title ~publisher in
+           refs := (doi, citation, true) :: !refs
+         | None -> ())
+      | Some (`Note n) ->
+        (match Note.doi n with
+         | Some doi ->
+           let authors = match Note.author n with
+             | Some a -> [a]
+             | None -> [Contact.name default_author]
+           in
+           let (year, _, _) = Note.date n in
+           let title = Note.title n in
+           let publisher = None in
+           let citation = format_citation ~authors ~year ~title ~publisher in
+           refs := (doi, citation, false) :: !refs
+         | None -> ())
+      | _ -> ())
+   | None -> ());
+
+  (* Scan body for bushel references *)
+  let slugs = scan_for_slugs entries (Note.body note) in
+  List.iter (fun slug ->
+    (* Strip leading : or @ from slug before lookup *)
+    let normalized_slug = strip_handle slug in
+    match Entry.lookup entries normalized_slug with
+    | Some (`Paper p) ->
+      (match Paper.doi p with
+       | Some doi ->
+         let authors = Paper.authors p in
+         let year = Paper.year p in
+         let title = Paper.title p in
+         let publisher = Some (Paper.publisher p) in
+         let citation = format_citation ~authors ~year ~title ~publisher in
+         (* Check if doi already exists in refs *)
+         if not (List.exists (fun (d, _, _) -> d = doi) !refs) then
+           refs := (doi, citation, true) :: !refs
+       | None -> ())
+    | Some (`Note n) ->
+      (match Note.doi n with
+       | Some doi ->
+         let authors = match Note.author n with
+           | Some a -> [a]
+           | None -> [Contact.name default_author]
+         in
+         let (year, _, _) = Note.date n in
+         let title = Note.title n in
+         let publisher = None in
+         let citation = format_citation ~authors ~year ~title ~publisher in
+         (* Check if doi already exists in refs *)
+         if not (List.exists (fun (d, _, _) -> d = doi) !refs) then
+           refs := (doi, citation, false) :: !refs
+       | None -> ())
+    | _ -> ()
+  ) slugs;
+
+  List.rev !refs
+;;
+

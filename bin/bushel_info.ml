@@ -167,6 +167,24 @@ let info_cmd () base_dir slug_opt =
                 (Fmt.styled `Red Fmt.string) "(not found)"
           ) backlinks
         end;
+        (* Add references information for notes *)
+        (match entry with
+         | `Note n ->
+           let default_author = match Contact.find_by_handle (Entry.contacts entries) "avsm" with
+             | Some c -> c
+             | None -> failwith "Default author 'avsm' not found"
+           in
+           let references = Md.note_references entries default_author n in
+           if references <> [] then begin
+             Fmt.pr "@.@.";
+             Fmt.pr "%a (%d):@," (Fmt.styled `Bold Fmt.string) "References" (List.length references);
+             List.iter (fun (doi, citation, _is_paper) ->
+               Fmt.pr "  %a: %s@,"
+                 (Fmt.styled `Cyan Fmt.string) doi
+                 citation
+             ) references
+           end
+         | _ -> ());
         Fmt.pr "@.";
         0
 
