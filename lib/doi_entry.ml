@@ -12,37 +12,50 @@ type t = {
   bibtype: string;
   publisher: string;
   resolved_at: string;
+  source_urls: string list;
   status: status;
 }
 
 type ts = t list
 
-let create_resolved ~doi ~title ~authors ~year ~bibtype ~publisher =
+let create_resolved ~doi ~title ~authors ~year ~bibtype ~publisher ?(source_urls=[]) () =
   let resolved_at =
     let now = Ptime_clock.now () in
     let rfc3339 = Ptime.to_rfc3339 ~space:false ~frac_s:0 now in
     String.sub rfc3339 0 10  (* Extract YYYY-MM-DD *)
   in
-  { doi; title; authors; year; bibtype; publisher; resolved_at; status = Resolved }
+  { doi; title; authors; year; bibtype; publisher; resolved_at; source_urls; status = Resolved }
 
-let create_failed ~doi ~error =
+let create_failed ~doi ~error ?(source_urls=[]) () =
   let resolved_at =
     let now = Ptime_clock.now () in
     let rfc3339 = Ptime.to_rfc3339 ~space:false ~frac_s:0 now in
     String.sub rfc3339 0 10  (* Extract YYYY-MM-DD *)
   in
   { doi; title = ""; authors = []; year = 0; bibtype = ""; publisher = "";
-    resolved_at; status = Failed error }
+    resolved_at; source_urls; status = Failed error }
+
+let merge_entries old_entry new_entry =
+  (* Combine source_urls, removing duplicates *)
+  let combined_urls =
+    List.sort_uniq String.compare (old_entry.source_urls @ new_entry.source_urls)
+  in
+  (* Use new_entry's data but with combined URLs *)
+  { new_entry with source_urls = combined_urls }
 
 let to_yaml_value entry =
   let status_field = match entry.status with
     | Resolved -> []
     | Failed err -> [("error", `String err)]
   in
+  let source_urls_field = match entry.source_urls with
+    | [] -> []
+    | urls -> [("source_urls", `A (List.map (fun url -> `String url) urls))]
+  in
   let fields = [
     ("doi", `String entry.doi);
     ("resolved_at", `String entry.resolved_at);
-  ] @ status_field in
+  ] @ status_field @ source_urls_field in
   let fields = match entry.status with
     | Resolved ->
       fields @ [
@@ -60,18 +73,28 @@ let of_yaml_value v =
   try
     let doi = J.find v ["doi"] |> J.get_string in
     let resolved_at = J.find v ["resolved_at"] |> J.get_string in
+    (* Support both old source_url (single) and new source_urls (list) for backwards compatibility *)
+    let source_urls =
+      try
+        J.find v ["source_urls"] |> J.get_list J.get_string
+      with _ ->
+        try
+          let single_url = J.find v ["source_url"] |> J.get_string in
+          [single_url]
+        with _ -> []
+    in
     let error = try Some (J.find v ["error"] |> J.get_string) with _ -> None in
     match error with
     | Some err ->
       { doi; title = ""; authors = []; year = 0; bibtype = ""; publisher = "";
-        resolved_at; status = Failed err }
+        resolved_at; source_urls; status = Failed err }
     | None ->
       let title = J.find v ["title"] |> J.get_string in
       let authors = J.find v ["authors"] |> J.get_list J.get_string in
       let year = J.find v ["year"] |> J.get_float |> int_of_float in
       let bibtype = J.find v ["bibtype"] |> J.get_string in
       let publisher = J.find v ["publisher"] |> J.get_string in
-      { doi; title; authors; year; bibtype; publisher; resolved_at; status = Resolved }
+      { doi; title; authors; year; bibtype; publisher; resolved_at; source_urls; status = Resolved }
   with e ->
     Printf.eprintf "Failed to parse DOI entry: %s\n%!" (Printexc.to_string e);
     failwith "Invalid DOI entry in YAML"
@@ -106,3 +129,8 @@ let to_map entries =
 
 let find_by_doi entries doi =
   List.find_opt (fun entry -> entry.doi = doi) entries
+
+let find_by_url entries url =
+  List.find_opt (fun entry ->
+    List.mem url entry.source_urls
+  ) entries

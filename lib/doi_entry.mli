@@ -12,6 +12,7 @@ type t = {
   bibtype: string;  (** article, inproceedings, book, etc *)
   publisher: string;  (** journal/conference/publisher name *)
   resolved_at: string;  (** ISO date when resolved *)
+  source_urls: string list;  (** All URLs that resolve to this DOI (publisher links, doi.org URLs, etc) *)
   status: status;
 }
 
@@ -29,9 +30,15 @@ val to_map : ts -> (string, t) Hashtbl.t
 (** Find entry by DOI *)
 val find_by_doi : ts -> string -> t option
 
+(** Find entry by source URL (searches through all source_urls) *)
+val find_by_url : ts -> string -> t option
+
 (** Create a new resolved entry *)
 val create_resolved : doi:string -> title:string -> authors:string list ->
-  year:int -> bibtype:string -> publisher:string -> t
+  year:int -> bibtype:string -> publisher:string -> ?source_urls:string list -> unit -> t
 
 (** Create a new failed entry *)
-val create_failed : doi:string -> error:string -> t
+val create_failed : doi:string -> error:string -> ?source_urls:string list -> unit -> t
+
+(** Merge two entries with the same DOI, combining their source_urls *)
+val merge_entries : t -> t -> t

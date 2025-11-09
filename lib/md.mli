@@ -61,8 +61,13 @@ val strip_handle : string -> string
 (** Extract all links from markdown text, including from images (internal and external) *)
 val extract_all_links : string -> string list
 
+(** Type indicating the source of a reference for CiTO annotation *)
+type reference_source =
+  | Paper  (** CitesAsSourceDocument *)
+  | Note   (** CitesAsRelated *)
+  | External  (** Cites *)
+
 (** Extract references (papers/notes with DOIs) from a note.
-    Returns a list of (DOI, citation_string, is_paper) tuples where is_paper
-    indicates if the reference is to a paper (true) or a note (false).
+    Returns a list of (DOI, citation_string, reference_source) tuples.
     Citation format: "Last, First (Year). Title. Publisher. https://doi.org/the/doi" *)
-val note_references : Entry.t -> Contact.t -> Note.t -> (string * string * bool) list
+val note_references : Entry.t -> Contact.t -> Note.t -> (string * string * reference_source) list

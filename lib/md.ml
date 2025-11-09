@@ -627,6 +627,12 @@ let extract_all_links text =
   StringSet.elements (StringSet.of_list !links)
 ;;
 
+(* Reference source type for CiTO annotations *)
+type reference_source =
+  | Paper  (* CitesAsSourceDocument *)
+  | Note   (* CitesAsRelated *)
+  | External  (* Cites *)
+
 (* Extract references (papers/notes with DOIs) from a note *)
 let note_references entries default_author note =
   let refs = ref [] in
@@ -663,7 +669,7 @@ let note_references entries default_author note =
            let title = Paper.title p in
            let publisher = Some (Paper.publisher p) in
            let citation = format_citation ~authors ~year ~title ~publisher in
-           refs := (doi, citation, true) :: !refs
+           refs := (doi, citation, Paper) :: !refs
          | None -> ())
       | Some (`Note n) ->
         (match Note.doi n with
@@ -676,7 +682,7 @@ let note_references entries default_author note =
            let title = Note.title n in
            let publisher = None in
            let citation = format_citation ~authors ~year ~title ~publisher in
-           refs := (doi, citation, false) :: !refs
+           refs := (doi, citation, Note) :: !refs
          | None -> ())
       | _ -> ())
    | None -> ());
@@ -697,7 +703,7 @@ let note_references entries default_author note =
          let citation = format_citation ~authors ~year ~title ~publisher in
          (* Check if doi already exists in refs *)
          if not (List.exists (fun (d, _, _) -> d = doi) !refs) then
-           refs := (doi, citation, true) :: !refs
+           refs := (doi, citation, Paper) :: !refs
        | None -> ())
     | Some (`Note n) ->
       (match Note.doi n with
@@ -712,7 +718,7 @@ let note_references entries default_author note =
          let citation = format_citation ~authors ~year ~title ~publisher in
          (* Check if doi already exists in refs *)
          if not (List.exists (fun (d, _, _) -> d = doi) !refs) then
-           refs := (doi, citation, false) :: !refs
+           refs := (doi, citation, Note) :: !refs
        | None -> ())
     | _ -> ()
   ) slugs;
@@ -738,12 +744,37 @@ let note_references entries default_author note =
             ~title:doi_entry.title
             ~publisher:(Some doi_entry.publisher)
           in
-          refs := (doi, citation, true) :: !refs
+          refs := (doi, citation, External) :: !refs
         | _ ->
           (* Not found in cache, add minimal citation with just the DOI *)
-          refs := (doi, doi, true) :: !refs
+          refs := (doi, doi, External) :: !refs
     with _ -> ()
   ) matches;
+
+  (* Scan body for publisher URLs (Elsevier, Nature) and resolve from cache *)
+  let publisher_pattern = Re.Perl.compile_pat "https?://(?:www\\.)?(?:linkinghub\\.elsevier\\.com|nature\\.com)/[^)\\s\"'>]+" in
+  let publisher_matches = Re.all publisher_pattern body in
+  List.iter (fun group ->
+    try
+      let url = Re.Group.get group 0 in
+      (* Look up in DOI cache by source URL *)
+      match Doi_entry.find_by_url doi_entries url with
+      | Some doi_entry when doi_entry.status = Resolved ->
+        let doi = doi_entry.doi in
+        (* Check if this DOI already exists in refs *)
+        if not (List.exists (fun (d, _, _) -> d = doi) !refs) then
+          let citation = format_citation
+            ~authors:doi_entry.authors
+            ~year:doi_entry.year
+            ~title:doi_entry.title
+            ~publisher:(Some doi_entry.publisher)
+          in
+          refs := (doi, citation, External) :: !refs
+      | _ ->
+        (* Not found in cache, skip it *)
+        ()
+    with _ -> ()
+  ) publisher_matches;
 
   List.rev !refs
 ;;
