@@ -1,34 +1,55 @@
 open Cmdliner
 open Bushel
 
+(** Determine the color for a note based on DOI and perma status *)
+let note_color n =
+  match Note.doi n, Note.perma n with
+  | None, false -> `Red          (* No DOI, no perma - red (normal note) *)
+  | None, true -> `Magenta       (* Has perma but no DOI - magenta (needs DOI assignment) *)
+  | Some _, true -> `Green       (* Has DOI with perma:true - green (correct state) *)
+  | Some _, false -> `Yellow     (* Has DOI without perma:true - yellow (bug in metadata) *)
+
 (** TODO:claude List all slugs with their types *)
-let list_all_slugs entries =
+let list_all_slugs entries ~notes_only =
   let all = Entry.all_entries entries in
+  (* Filter for notes only if requested *)
+  let filtered = if notes_only then
+    List.filter (fun entry -> match entry with `Note _ -> true | _ -> false) all
+  else all in
   (* Sort by slug for consistent output *)
   let sorted = List.sort (fun a b ->
     String.compare (Entry.slug a) (Entry.slug b)
-  ) all in
+  ) filtered in
   Fmt.pr "@[<v>";
-  Fmt.pr "%a@," (Fmt.styled `Bold Fmt.string) "Available entries:";
+  Fmt.pr "%a@," (Fmt.styled `Bold Fmt.string) (if notes_only then "Available notes:" else "Available entries:");
   Fmt.pr "@,";
   List.iter (fun entry ->
     let slug = Entry.slug entry in
     let type_str = Entry.to_type_string entry in
     let title = Entry.title entry in
-    Fmt.pr "  %a %a - %a@,"
-      (Fmt.styled `Cyan Fmt.string) slug
-      (Fmt.styled `Faint Fmt.string) (Printf.sprintf "(%s)" type_str)
-      Fmt.string title
+    (* Color code notes based on DOI/perma status *)
+    match entry with
+    | `Note n ->
+      let color = note_color n in
+      Fmt.pr "  %a %a - %a@,"
+        (Fmt.styled color Fmt.string) slug
+        (Fmt.styled `Faint Fmt.string) (Printf.sprintf "(%s)" type_str)
+        Fmt.string title
+    | _ ->
+      Fmt.pr "  %a %a - %a@,"
+        (Fmt.styled `Cyan Fmt.string) slug
+        (Fmt.styled `Faint Fmt.string) (Printf.sprintf "(%s)" type_str)
+        Fmt.string title
   ) sorted;
   Fmt.pr "@]@.";
   0
 
 (** TODO:claude Main info command implementation *)
-let info_cmd () base_dir slug_opt =
+let info_cmd () base_dir notes_only slug_opt =
   let entries = load base_dir in
   match slug_opt with
   | None ->
-    list_all_slugs entries
+    list_all_slugs entries ~notes_only
   | Some slug ->
     (* Handle contact handles starting with @ *)
     if String.starts_with ~prefix:"@" slug then
@@ -189,12 +210,16 @@ let info_cmd () base_dir slug_opt =
         0
 
 (** TODO:claude Command line interface definition *)
+let notes_only_flag =
+  let doc = "Show only notes when listing entries" in
+  Arg.(value & flag & info ["notes-only"; "n"] ~doc)
+
 let slug_arg =
   let doc = "The slug of the entry to display (with or without leading ':'), or contact handle (with '@' prefix). If not provided, lists all available slugs." in
   Arg.(value & pos 0 (some string) None & info [] ~docv:"SLUG" ~doc)
 
 let term =
-  Term.(const info_cmd $ Bushel_common.setup_term $ Bushel_common.base_dir $ slug_arg)
+  Term.(const info_cmd $ Bushel_common.setup_term $ Bushel_common.base_dir $ notes_only_flag $ slug_arg)
 
 let cmd =
   let doc = "Display all information for a given slug" in
