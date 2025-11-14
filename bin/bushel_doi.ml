@@ -21,10 +21,10 @@ let extract_dois_from_notes notes =
   ) notes;
   !dois
 
-(* Extract publisher URLs from notes (Elsevier, Nature, ACM, Sage, UPenn, Springer, Taylor & Francis) *)
+(* Extract publisher URLs from notes (Elsevier, ScienceDirect, IEEE, Nature, ACM, Sage, UPenn, Springer, Taylor & Francis) *)
 let extract_publisher_urls_from_notes notes =
-  (* Matches publisher URLs: linkinghub.elsevier.com, nature.com, journals.sagepub.com, garfield.library.upenn.edu, link.springer.com, tandfonline.com/doi, and dl.acm.org/doi/10.* URLs *)
-  let publisher_pattern = Re.Perl.compile_pat "https?://(?:(?:www\\.)?(?:linkinghub\\.elsevier\\.com|nature\\.com|journals\\.sagepub\\.com|garfield\\.library\\.upenn\\.edu|link\\.springer\\.com)/[^)\\s\"'>]+|(?:dl\\.acm\\.org|(?:www\\.)?tandfonline\\.com)/doi(?:/pdf)?/10\\.[^)\\s\"'>]+)" in
+  (* Matches publisher URLs: linkinghub.elsevier.com, sciencedirect.com/science/article, ieeexplore.ieee.org, nature.com, journals.sagepub.com, garfield.library.upenn.edu, link.springer.com, tandfonline.com/doi, and dl.acm.org/doi/10.* URLs *)
+  let publisher_pattern = Re.Perl.compile_pat "https?://(?:(?:www\\.)?(?:linkinghub\\.elsevier\\.com|(?:www\\.)?xsciencedirect\\.com/science/article|ieeexplore\\.ieee\\.org|nature\\.com|journals\\.sagepub\\.com|garfield\\.library\\.upenn\\.edu|link\\.springer\\.com)/[^)\\s\"'>]+|(?:dl\\.acm\\.org|(?:www\\.)?tandfonline\\.com)/doi(?:/pdf)?/10\\.[^)\\s\"'>]+)" in
   let urls = ref [] in
   List.iter (fun note ->
     let body = Bushel.Note.body note in
@@ -57,16 +57,19 @@ let resolve_doi zt ~verbose doi =
         let bibtype = J.find json ["bibtype"] |> J.get_string in
         let publisher =
           try
-            (* Try journal first, then booktitle, then publisher *)
+            (* Try journal first, then booktitle, then proceedingsTitle, then publisher *)
             match List.assoc_opt "journal" keys with
             | Some j -> J.get_string j
             | None ->
               match List.assoc_opt "booktitle" keys with
               | Some b -> J.get_string b
               | None ->
-                match List.assoc_opt "publisher" keys with
-                | Some p -> J.get_string p
-                | None -> ""
+                match List.assoc_opt "proceedingsTitle" keys with
+                | Some pt -> J.get_string pt
+                | None ->
+                  match List.assoc_opt "publisher" keys with
+                  | Some p -> J.get_string p
+                  | None -> ""
           with _ -> ""
         in
         let entry = Bushel.Doi_entry.create_resolved ~doi ~title ~authors ~year ~bibtype ~publisher ~source_urls:[doi_url] () in
@@ -147,10 +150,12 @@ let resolve_url zt ~verbose url =
             in
             (* Extract type/bibtype from Zotero's "itemType" field *)
             let bibtype = try J.find item ["itemType"] |> J.get_string with _ -> "article" in
-            (* Extract publisher/journal from Zotero's "publicationTitle" field *)
+            (* Extract publisher/journal from Zotero's "publicationTitle" or "proceedingsTitle" field *)
             let publisher = try
               J.find item ["publicationTitle"] |> J.get_string
-            with _ -> ""
+            with _ ->
+              try J.find item ["proceedingsTitle"] |> J.get_string
+              with _ -> ""
             in
             (* Include both the original URL and the DOI URL in source_urls *)
             let doi_url = if doi = url then [] else [Printf.sprintf "https://doi.org/%s" doi] in
