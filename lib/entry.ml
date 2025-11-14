@@ -267,7 +267,7 @@ let extract_first_video entries md =
 let lookup_image { images; _ } slug =
   List.find_opt (fun img -> Srcsetter.slug img = slug) images
 
-(** Get the smallest webp variant from a srcsetter image *)
+(** Get the smallest webp variant from a srcsetter image - prefers size just above 480px *)
 let smallest_webp_variant img =
   let variants = Srcsetter.variants img in
   let webp_variants =
@@ -279,13 +279,16 @@ let smallest_webp_variant img =
     (* No webp variants - use the name field which is always webp *)
     "/images/" ^ Srcsetter.name img
   | variants ->
-    (* Find the variant with the smallest width *)
+    (* Prefer variants with width > 480px, choosing the smallest one above 480 *)
+    let large_variants = List.filter (fun (_, (w, _)) -> w > 480) variants in
+    let candidates = if large_variants = [] then variants else large_variants in
+    (* Find the smallest variant from candidates *)
     let smallest = List.fold_left (fun acc (name, (w, h)) ->
       match acc with
       | None -> Some (name, w, h)
       | Some (_, min_w, _) when w < min_w -> Some (name, w, h)
       | _ -> acc
-    ) None variants in
+    ) None candidates in
     match smallest with
     | Some (name, _, _) -> "/images/" ^ name
     | None -> "/images/" ^ Srcsetter.name img
