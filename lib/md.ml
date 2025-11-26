@@ -776,6 +776,13 @@ let note_references entries default_author note =
     with _ -> ()
   ) publisher_matches;
 
-  List.rev !refs
+  (* Filter out the note's own DOI from references *)
+  let own_doi = Note.doi note in
+  let filtered_refs = List.filter (fun (doi, _, _) ->
+    match own_doi with
+    | Some own -> doi <> own
+    | None -> true
+  ) !refs in
+  List.rev filtered_refs
 ;;
 
