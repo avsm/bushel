@@ -1,5 +1,4 @@
 (library
  (public_name typesense-client)
  (name typesense_client)
- (libraries lwt cohttp-lwt-unix ezjsonm fmt uri ptime)
- (preprocess (pps lwt_ppx)))
+ (libraries lwt cohttp-lwt-unix ezjsonm fmt uri ptime))
