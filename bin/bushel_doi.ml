@@ -21,10 +21,10 @@ let extract_dois_from_notes notes =
   ) notes;
   !dois
 
-(* Extract publisher URLs from notes (Elsevier, ScienceDirect, IEEE, Nature, ACM, Sage, UPenn, Springer, Taylor & Francis, OUP) *)
+(* Extract publisher URLs from notes (Elsevier, ScienceDirect, IEEE, Nature, ACM, Sage, UPenn, Springer, Taylor & Francis, OUP, arXiv) *)
 let extract_publisher_urls_from_notes notes =
-  (* Matches publisher URLs: linkinghub.elsevier.com, sciencedirect.com/science/article, ieeexplore.ieee.org, academic.oup.com, nature.com, journals.sagepub.com, garfield.library.upenn.edu, link.springer.com, tandfonline.com/doi, and dl.acm.org/doi/10.* URLs *)
-  let publisher_pattern = Re.Perl.compile_pat "https?://(?:(?:www\\.)?(?:linkinghub\\.elsevier\\.com|(?:www\\.)?sciencedirect\\.com/science/article|ieeexplore\\.ieee\\.org|academic\\.oup\\.com|nature\\.com|journals\\.sagepub\\.com|garfield\\.library\\.upenn\\.edu|link\\.springer\\.com)/[^)\\s\"'>]+|(?:dl\\.acm\\.org|(?:www\\.)?tandfonline\\.com)/doi(?:/pdf)?/10\\.[^)\\s\"'>]+)" in
+  (* Matches publisher URLs: linkinghub.elsevier.com, sciencedirect.com/science/article, ieeexplore.ieee.org, academic.oup.com, nature.com, journals.sagepub.com, garfield.library.upenn.edu, link.springer.com, tandfonline.com/doi, dl.acm.org/doi/10.*, and arxiv.org URLs *)
+  let publisher_pattern = Re.Perl.compile_pat "https?://(?:(?:www\\.)?(?:linkinghub\\.elsevier\\.com|(?:www\\.)?sciencedirect\\.com/science/article|ieeexplore\\.ieee\\.org|academic\\.oup\\.com|nature\\.com|journals\\.sagepub\\.com|garfield\\.library\\.upenn\\.edu|link\\.springer\\.com|arxiv\\.org/abs|arxiv\\.org/pdf)/[^)\\s\"'>]+|(?:dl\\.acm\\.org|(?:www\\.)?tandfonline\\.com)/doi(?:/pdf)?/10\\.[^)\\s\"'>]+)" in
   let urls = ref [] in
   List.iter (fun note ->
     let body = Bushel.Note.body note in

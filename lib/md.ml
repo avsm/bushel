@@ -751,8 +751,8 @@ let note_references entries default_author note =
     with _ -> ()
   ) matches;
 
-  (* Scan body for publisher URLs (Elsevier, ScienceDirect, IEEE, Nature, ACM, Sage, UPenn, Springer, Taylor & Francis, OUP) and resolve from cache *)
-  let publisher_pattern = Re.Perl.compile_pat "https?://(?:(?:www\\.)?(?:linkinghub\\.elsevier\\.com|(?:www\\.)?sciencedirect\\.com/science/article|ieeexplore\\.ieee\\.org|academic\\.oup\\.com|nature\\.com|journals\\.sagepub\\.com|garfield\\.library\\.upenn\\.edu|link\\.springer\\.com)/[^)\\s\"'>]+|(?:dl\\.acm\\.org|(?:www\\.)?tandfonline\\.com)/doi(?:/pdf)?/10\\.[^)\\s\"'>]+)" in
+  (* Scan body for publisher URLs (Elsevier, ScienceDirect, IEEE, Nature, ACM, Sage, UPenn, Springer, Taylor & Francis, OUP, arXiv) and resolve from cache *)
+  let publisher_pattern = Re.Perl.compile_pat "https?://(?:(?:www\\.)?(?:linkinghub\\.elsevier\\.com|(?:www\\.)?sciencedirect\\.com/science/article|ieeexplore\\.ieee\\.org|academic\\.oup\\.com|nature\\.com|journals\\.sagepub\\.com|garfield\\.library\\.upenn\\.edu|link\\.springer\\.com|arxiv\\.org/abs)/[^)\\s\"'>]+|(?:dl\\.acm\\.org|(?:www\\.)?tandfonline\\.com)/doi(?:/pdf)?/10\\.[^)\\s\"'>]+)" in
   let publisher_matches = Re.all publisher_pattern body in
   List.iter (fun group ->
     try

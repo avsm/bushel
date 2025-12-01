@@ -36,9 +36,7 @@ let bibtype { paper; _ } : string = key paper "bibtype" |> J.get_string
 
 let journal { paper; _ } =
   try key paper "journal" |> J.get_string with
-  | Not_found ->
-    failwith
-      (Printf.sprintf "no journal found for %s\n%!" (Ezjsonm.value_to_string paper))
+  | _ -> ""
 ;;
 
 (** TODO:claude Helper to extract raw JSON *)
@@ -74,9 +72,7 @@ let abstract { abstract; _ } = abstract
 
 let institution { paper; _ } =
   try key paper "institution" |> J.get_string with
-  | Not_found ->
-    failwith
-      (Printf.sprintf "no institution found for %s\n%!" (Ezjsonm.value_to_string paper))
+  | _ -> ""
 ;;
 
 let number { paper; _ } =
@@ -84,10 +80,10 @@ let number { paper; _ } =
   | Not_found -> None
 ;;
 
-let editor { paper; _ } = key paper "editor" |> J.get_string
-let isbn { paper; _ } = key paper "isbn" |> J.get_string
-let bib { paper; _ } = key paper "bib" |> J.get_string
-let year { paper; _ } = key paper "year" |> J.get_string |> int_of_string
+let editor { paper; _ } = try key paper "editor" |> J.get_string with _ -> ""
+let isbn { paper; _ } = try key paper "isbn" |> J.get_string with _ -> ""
+let bib { paper; _ } = try key paper "bib" |> J.get_string with _ -> ""
+let year { paper; _ } = try key paper "year" |> J.get_string |> int_of_string with _ -> 0
 
 let publisher { paper; _ } =
   try key paper "publisher" |> J.get_string with
@@ -95,9 +91,15 @@ let publisher { paper; _ } =
 ;;
 
 let booktitle { paper; _ } =
-  let r = key paper "booktitle" |> J.get_string |> Bytes.of_string in
-  Bytes.set r 0 (Char.lowercase_ascii (Bytes.get r 0));
-  String.of_bytes r
+  try
+    let s = key paper "booktitle" |> J.get_string in
+    if String.length s = 0 then ""
+    else begin
+      let r = Bytes.of_string s in
+      Bytes.set r 0 (Char.lowercase_ascii (Bytes.get r 0));
+      String.of_bytes r
+    end
+  with _ -> ""
 ;;
 
 let date { paper; _ } =
