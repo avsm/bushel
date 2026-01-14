@@ -23,7 +23,18 @@ let make names email icon github twitter bluesky mastodon orcid url atom =
 ;;
 
 let names { names; _ } = names
-let name { names; _ } = List.hd names
+let name c =
+  try
+    List.hd c.names
+  with Failure _ | Invalid_argument _ ->
+    Printf.eprintf "ERROR: Contact.name failed for contact:\n";
+    Printf.eprintf "  handle: %s\n" c.handle;
+    Printf.eprintf "  names: [%s]\n" (String.concat "; " c.names);
+    Printf.eprintf "  email: %s\n" (Option.value ~default:"None" c.email);
+    Printf.eprintf "  url: %s\n" (Option.value ~default:"None" c.url);
+    Printf.eprintf "  github: %s\n" (Option.value ~default:"None" c.github);
+    Printf.eprintf "  orcid: %s\n%!" (Option.value ~default:"None" c.orcid);
+    failwith (Printf.sprintf "Contact with handle '%s' has empty names list" c.handle)
 let handle { handle; _ } = handle
 let email { email; _ } = email
 let icon { icon; _ } = icon

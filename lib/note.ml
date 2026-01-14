@@ -18,6 +18,7 @@ type t =
   ; url : string option        (* Optional external URL for news-style notes *)
   ; author : string option     (* Optional author for news-style notes *)
   ; category : string option   (* Optional category for news-style notes *)
+  ; standardsite : string option (* Optional standards body site reference *)
   }
 
 type ts = t list
@@ -54,6 +55,7 @@ let source { source; _ } = source
 let url { url; _ } = url
 let author { author; _ } = author
 let category { category; _ } = category
+let standardsite { standardsite; _ } = standardsite
 let lookup slug notes = List.find (fun n -> n.slug = slug) notes
 let read_file file = In_channel.(with_open_bin file input_all)
 let words { body; _ } = Util.count_words body
@@ -62,7 +64,7 @@ let words { body; _ } = Util.count_words body
 let of_md fname =
   (* TODO fix Jekyll_post to basename the fname all the time *)
   match Jekyll_post.of_string ~fname:(Filename.basename fname) (read_file fname) with
-  | Error (`Msg m) -> failwith ("note_of_md: " ^ m)
+  | Error (`Msg m) -> failwith (fname ^ ": note_of_md : " ^ m)
   | Ok jp ->
     let fields = jp.Jekyll_post.fields in
     let { Jekyll_post.title; date; slug; body; _ } = jp in
@@ -142,12 +144,17 @@ let of_md fname =
       | Some (`String v) -> Some v
       | _ -> None
     in
+    let standardsite =
+      match Jekyll_format.find "standardsite" fields with
+      | Some (`String v) -> Some v
+      | _ -> None
+    in
     let doi =
       match Jekyll_format.find "doi" fields with
       | Some (`String v) -> Some v
       | _ -> None
     in
-    { title; draft; date; slug; synopsis; titleimage; index_page; perma; doi; body; via; updated; tags; sidebar; slug_ent; source; url; author; category }
+    { title; draft; date; slug; synopsis; titleimage; index_page; perma; doi; body; via; updated; tags; sidebar; slug_ent; source; url; author; category; standardsite }
 
 (* TODO:claude *)
 let typesense_schema =
@@ -211,6 +218,9 @@ let pp ppf n =
        pf ppf "%a: %a (%a)@," (styled `Bold string) "Via" string label string url
      else
        pf ppf "%a: %a@," (styled `Bold string) "Via" string url
+   | None -> ());
+  (match standardsite n with
+   | Some site -> pf ppf "%a: %a@," (styled `Bold string) "Standard Site" string site
    | None -> ());
   let t = tags n in
   if t <> [] then

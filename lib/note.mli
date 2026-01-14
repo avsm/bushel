@@ -18,6 +18,7 @@ type t =
   ; url : string option
   ; author : string option
   ; category : string option
+  ; standardsite : string option
   }
 
 type ts = t list
@@ -40,6 +41,7 @@ val source : t -> string option
 val url : t -> string option
 val author : t -> string option
 val category : t -> string option
+val standardsite : t -> string option
 val tags : t -> string list
 val sidebar : t -> string option
 val lookup : string -> t list -> t
